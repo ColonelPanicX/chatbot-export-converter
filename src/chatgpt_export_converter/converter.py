@@ -581,7 +581,7 @@ def dump_yaml_front_matter(conversation: dict[str, Any]) -> str:
             f'conversation_id: "{cid}"',
             f'created_at: "{created_at}"',
             f'updated_at: "{updated_at}"',
-            f'archived: "{str(archived).lower()}"',
+            f"archived: {str(archived).lower()}",
             'source: "chatgpt-data-export"',
             "---",
             "",
