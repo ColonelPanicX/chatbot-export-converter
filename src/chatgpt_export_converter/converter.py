@@ -61,6 +61,11 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _output_folder_name() -> str:
+    """Return the dated output folder name: chatgpt-convert-MM.DD.YYYY"""
+    return datetime.now().strftime("chatgpt-convert-%m.%d.%Y")
+
+
 def prompt_bool(prompt: str, default: bool = False) -> bool:
     suffix = "[Y/n]" if default else "[y/N]"
     while True:
@@ -74,40 +79,96 @@ def prompt_bool(prompt: str, default: bool = False) -> bool:
         print("Please answer y or n.")
 
 
-def run_wizard(args: argparse.Namespace) -> tuple[Path, Path]:
-    print("")
-    print("=" * 64)
-    print("ChatGPT Export Converter")
-    print("=" * 64)
-    print("This wizard converts your ChatGPT export into browsable chat folders.")
-    print("")
+def _prompt_input_path() -> Path:
+    """Prompt for a zip file or directory path, validate, and return it."""
+    while True:
+        raw = input("Path to your ChatGPT export (.zip file or directory):\n> ").strip()
+        if not raw:
+            print("  A path is required.")
+            continue
+        path = Path(raw).expanduser().resolve()
+        if not path.exists():
+            print(f"  Not found: {path}")
+            continue
+        if path.is_dir():
+            return path
+        if path.is_file() and path.suffix.lower() == ".zip":
+            return path
+        print("  Must be a .zip file or an unzipped directory.")
+
+
+def _prompt_output_dir(input_path: Path) -> Path:
+    """
+    Ask where to save the converted chats.
+    Option 1 is always the same folder as the input.
+    Option 2 lets the user enter a custom location.
+    Returns the full output path (parent / folder-name).
+    """
+    folder_name = _output_folder_name()
+    default_parent = input_path.parent
+    default_output = default_parent / folder_name
+
+    print(f"\nWhere would you like to save the converted chats?")
+    print(f"  [1] Same folder as the input  ({default_output})")
+    print(f"  [2] Choose a different location")
 
     while True:
-        raw = input("Please enter the path to your ChatGPT export (.zip file or directory): ").strip()
-        if not raw:
-            print("A path is required.")
-            continue
-        input_path = Path(raw).expanduser().resolve()
-        if not input_path.exists():
-            print(f"Path not found: {input_path}")
-            continue
-        if input_path.is_dir():
-            break
-        if input_path.is_file() and input_path.suffix.lower() == ".zip":
-            break
-        print("Path must be a .zip file or an unzipped directory.")
+        choice = input("> ").strip()
+        if choice in {"", "1"}:
+            return default_output
+        if choice == "2":
+            while True:
+                raw = input("Enter output directory path:\n> ").strip()
+                if not raw:
+                    print("  A path is required.")
+                    continue
+                return Path(raw).expanduser().resolve() / folder_name
+        print("  Please enter 1 or 2.")
 
-    output_dir = input_path.parent / "chats"
-    print(f"\nOutput will be written to: {output_dir}")
-    print("A 'chats/' folder will be created/updated in the same parent directory.")
 
-    args.incremental = prompt_bool("Use incremental mode (skip unchanged chats)?", default=True)
-    args.dry_run = prompt_bool("Dry run only (no files written)?", default=False)
+def run_menu(args: argparse.Namespace) -> tuple[Path, Path, bool, bool]:
+    """
+    Interactive menu. Returns (input_path, output_dir, incremental, dry_run).
+    Replaces the old run_wizard.
+    """
+    print()
+    print("=" * 56)
+    print("  ChatGPT Export Converter")
+    print("=" * 56)
+    print()
 
-    if not prompt_bool("Proceed with conversion?", default=True):
+    input_path = _prompt_input_path()
+    output_dir = _prompt_output_dir(input_path)
+
+    print()
+    incremental = prompt_bool("Use incremental mode (skip unchanged chats)?", default=True)
+    dry_run = prompt_bool("Dry run only (no files written)?", default=False)
+
+    print()
+    print("Ready to convert.")
+    print(f"  Input:  {input_path}")
+    print(f"  Output: {output_dir}")
+    mode_flags = []
+    if incremental:
+        mode_flags.append("incremental")
+    if dry_run:
+        mode_flags.append("dry-run")
+    print(f"  Mode:   {', '.join(mode_flags) if mode_flags else 'standard'}")
+    print()
+
+    if not prompt_bool("Proceed?", default=True):
         print("Cancelled.")
         raise SystemExit(0)
 
+    return input_path, output_dir, incremental, dry_run
+
+
+def run_wizard(args: argparse.Namespace) -> tuple[Path, Path]:
+    """Deprecated: use run_menu (invoked automatically with no flags)."""
+    print("Note: --wizard is deprecated. Running interactive menu.", file=sys.stderr)
+    input_path, output_dir, incremental, dry_run = run_menu(args)
+    args.incremental = incremental
+    args.dry_run = dry_run
     return input_path, output_dir
 
 
@@ -701,8 +762,11 @@ def print_summary(summary: Summary) -> None:
 
 def main() -> int:
     args = parse_args()
-    if args.wizard or (not args.input and not args.output):
+    if args.wizard:
+        # --wizard is deprecated; delegates to run_menu and patches args
         input_path, output_dir = run_wizard(args)
+    elif not args.input and not args.output:
+        input_path, output_dir, args.incremental, args.dry_run = run_menu(args)
     else:
         if not args.input or not args.output:
             print("error: both --input and --output are required unless using --wizard", file=sys.stderr)
