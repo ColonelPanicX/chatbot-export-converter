@@ -517,7 +517,9 @@ def message_to_markdown(message: dict[str, Any], asset_links: dict[str, list[str
         lines.append(fence(text, "text"))
     elif ctype in {"thoughts", "reasoning_recap"}:
         text = str(content.get("text") or "")
-        lines.append(f"> [{ctype}] {text}")
+        # Prefix every line with "> " so multi-paragraph text stays inside the blockquote.
+        quoted = "\n".join(f"> {line}" if line.strip() else ">" for line in text.splitlines())
+        lines.append(f"> [{ctype}]\n{quoted}")
     else:
         parts = content.get("parts")
         if isinstance(parts, list):
