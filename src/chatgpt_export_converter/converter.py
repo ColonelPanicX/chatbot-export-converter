@@ -621,11 +621,10 @@ def conversation_signature(
         "id": conversation_id(conversation),
         "title": conversation.get("title"),
         "create_time": conversation.get("create_time"),
-        "update_time": conversation.get("update_time"),
         "current_node": conversation.get("current_node"),
         "total_message_nodes": total_message_nodes,
         "selected_message_ids": [m.get("id") for m in selected_messages],
-        "selected_message_update_times": [m.get("update_time") for m in selected_messages],
+        "selected_message_create_times": [m.get("create_time") for m in selected_messages],
         "asset_ids": conv_asset_ids,
     }
     raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
