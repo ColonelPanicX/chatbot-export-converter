@@ -805,7 +805,13 @@ def main() -> int:
 
         unique_by_id: dict[str, dict[str, Any]] = {}
         for conv in conversations:
-            unique_by_id[conversation_id(conv)] = conv
+            cid = conversation_id(conv)
+            if cid in unique_by_id:
+                print(
+                    f"warning: duplicate conversation ID '{cid}' — keeping last occurrence",
+                    file=sys.stderr,
+                )
+            unique_by_id[cid] = conv
 
         by_asset_id, all_files = build_asset_index(input_dir)
 
