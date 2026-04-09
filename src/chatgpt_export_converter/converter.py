@@ -567,8 +567,13 @@ def message_to_markdown(message: dict[str, Any], asset_links: dict[str, list[str
     return "\n\n".join(lines)
 
 
+def _yaml_str(value: str) -> str:
+    """Wrap a string value in double quotes with internal quotes escaped."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def dump_yaml_front_matter(conversation: dict[str, Any]) -> str:
-    title = str(conversation.get("title") or "untitled").replace('"', '\\"')
+    title = str(conversation.get("title") or "untitled")
     cid = str(conversation.get("id") or conversation.get("conversation_id") or "")
     created_at = to_iso(conversation.get("create_time"))
     updated_at = to_iso(conversation.get("update_time"))
@@ -577,10 +582,10 @@ def dump_yaml_front_matter(conversation: dict[str, Any]) -> str:
     return "\n".join(
         [
             "---",
-            f'title: "{title}"',
-            f'conversation_id: "{cid}"',
-            f'created_at: "{created_at}"',
-            f'updated_at: "{updated_at}"',
+            f"title: {_yaml_str(title)}",
+            f"conversation_id: {_yaml_str(cid)}",
+            f"created_at: {_yaml_str(created_at)}",
+            f"updated_at: {_yaml_str(updated_at)}",
             f"archived: {str(archived).lower()}",
             'source: "chatgpt-data-export"',
             "---",
