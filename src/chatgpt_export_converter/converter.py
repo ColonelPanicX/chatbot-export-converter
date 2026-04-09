@@ -686,61 +686,76 @@ def render_conversation(
                 pass
 
     if not dry_run:
+        # If an existing dir needs to be renamed (title/date changed), do that first.
         if existing_chat_dir and existing_chat_dir != desired_chat_dir and existing_chat_dir.exists():
             if desired_chat_dir.exists():
                 shutil.rmtree(desired_chat_dir)
             existing_chat_dir.rename(desired_chat_dir)
-        if desired_chat_dir.exists():
-            shutil.rmtree(desired_chat_dir)
-        desired_chat_dir.mkdir(parents=True, exist_ok=True)
-        chat_dir = desired_chat_dir
+        # Write into a temp dir; rename to desired_chat_dir only after all writes
+        # succeed — prevents a partially-written directory from replacing good output
+        # if the process is interrupted mid-render.
+        tmp_dir = desired_chat_dir.parent / f".tmp-{cid}"
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        chat_dir = tmp_dir
 
-    asset_links, copied_count, unresolved_assets = copy_assets_for_conversation(
-        conv_asset_ids,
-        chat_dir,
-        input_dir,
-        by_asset_id,
-        all_files,
-        dry_run,
-    )
-    summary.assets_copied += copied_count
-
-    transcript_parts: list[str] = [dump_yaml_front_matter(conversation)]
-
-    if has_prior_versions:
-        transcript_parts.append(
-            "> [note] Conversation contained edited/branched history. This transcript follows the final path to `current_node`."
+    try:
+        asset_links, copied_count, unresolved_assets = copy_assets_for_conversation(
+            conv_asset_ids,
+            chat_dir,
+            input_dir,
+            by_asset_id,
+            all_files,
+            dry_run,
         )
+        summary.assets_copied += copied_count
 
-    for message in selected_messages:
-        transcript_parts.append(message_to_markdown(message, asset_links))
+        transcript_parts: list[str] = [dump_yaml_front_matter(conversation)]
 
-    transcript = "\n\n".join(transcript_parts).strip() + "\n"
+        if has_prior_versions:
+            transcript_parts.append(
+                "> [note] Conversation contained edited/branched history. This transcript follows the final path to `current_node`."
+            )
 
-    if not dry_run:
-        (chat_dir / "transcript.md").write_text(transcript, encoding="utf-8")
+        for message in selected_messages:
+            transcript_parts.append(message_to_markdown(message, asset_links))
 
-        metadata_out = {
-            "conversation_id": cid,
-            "title": title,
-            "source_files": {
-                "has_chat_html": (input_dir / "chat.html").exists(),
-            },
-            "stats": {
-                "selected_messages": len(selected_messages),
-                "total_message_nodes": total_message_nodes,
-                "has_prior_versions": has_prior_versions,
-                "asset_ids_detected": len(conv_asset_ids),
-                "asset_ids_resolved": len(asset_links),
-                "asset_ids_unresolved": len(unresolved_assets),
-            },
-            "source_signature": signature,
-            "unresolved_asset_ids": unresolved_assets,
-        }
-        (chat_dir / "metadata.json").write_text(
-            json.dumps(metadata_out, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        transcript = "\n\n".join(transcript_parts).strip() + "\n"
+
+        if not dry_run:
+            (chat_dir / "transcript.md").write_text(transcript, encoding="utf-8")
+
+            metadata_out = {
+                "conversation_id": cid,
+                "title": title,
+                "source_files": {
+                    "has_chat_html": (input_dir / "chat.html").exists(),
+                },
+                "stats": {
+                    "selected_messages": len(selected_messages),
+                    "total_message_nodes": total_message_nodes,
+                    "has_prior_versions": has_prior_versions,
+                    "asset_ids_detected": len(conv_asset_ids),
+                    "asset_ids_resolved": len(asset_links),
+                    "asset_ids_unresolved": len(unresolved_assets),
+                },
+                "source_signature": signature,
+                "unresolved_asset_ids": unresolved_assets,
+            }
+            (chat_dir / "metadata.json").write_text(
+                json.dumps(metadata_out, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            # Atomic swap: fully-written tmp_dir replaces desired_chat_dir.
+            if desired_chat_dir.exists():
+                shutil.rmtree(desired_chat_dir)
+            chat_dir.rename(desired_chat_dir)
+
+    except Exception:
+        if not dry_run:
+            shutil.rmtree(chat_dir, ignore_errors=True)
+        raise
 
     summary.conversations_processed += 1
 
