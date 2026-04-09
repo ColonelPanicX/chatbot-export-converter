@@ -256,7 +256,7 @@ def date_from_timestamp(value: Any) -> str:
             return dt.date().isoformat()
         except Exception:
             pass
-    return "1970-01-01"
+    return "undated"
 
 
 def safe_title(raw: Any) -> str:
