@@ -294,24 +294,32 @@ def extract_asset_id(value: Any) -> str | None:
     return match.group(1)
 
 
-def collect_asset_ids_from_obj(obj: Any, out: list[str]) -> None:
+_ASSET_KEYS = frozenset({
+    "asset_pointer", "watermarked_asset_pointer", "asset_pointer_link", "file_id", "asset_id",
+})
+_MAX_COLLECT_DEPTH = 20
+
+
+def collect_asset_ids_from_obj(obj: Any, out: list[str], _depth: int = 0) -> None:
+    if _depth > _MAX_COLLECT_DEPTH:
+        return
     if isinstance(obj, dict):
         for key, value in obj.items():
             lkey = key.lower()
-            if lkey in {"asset_pointer", "watermarked_asset_pointer", "asset_pointer_link", "file_id", "asset_id"}:
+            if lkey in _ASSET_KEYS:
                 asset_id = extract_asset_id(value)
                 if asset_id:
                     out.append(asset_id)
             if lkey == "id" and isinstance(value, str) and value.startswith(("file-", "file_")):
                 out.append(value)
-            collect_asset_ids_from_obj(value, out)
+            collect_asset_ids_from_obj(value, out, _depth + 1)
     elif isinstance(obj, list):
         for item in obj:
-            collect_asset_ids_from_obj(item, out)
+            collect_asset_ids_from_obj(item, out, _depth + 1)
     elif isinstance(obj, str):
-        asset_id = extract_asset_id(obj)
-        if asset_id:
-            out.append(asset_id)
+        # Only scan strings found under known high-signal keys — avoid scanning
+        # every string in the tree to reduce false positives.
+        pass
 
 
 def collect_message_asset_ids(message: dict[str, Any]) -> list[str]:
