@@ -620,10 +620,19 @@ def find_existing_chat_dir(output_dir: Path, cid: str) -> Path | None:
     if not output_dir.exists():
         return None
     suffix = f"__{cid}"
-    matches = [p for p in output_dir.iterdir() if p.is_dir() and p.name.endswith(suffix)]
+    matches = sorted(
+        [p for p in output_dir.iterdir() if p.is_dir() and p.name.endswith(suffix)],
+        key=lambda p: p.name,
+    )
     if not matches:
         return None
-    return sorted(matches, key=lambda p: p.name)[0]
+    if len(matches) > 1:
+        paths = ", ".join(str(p) for p in matches)
+        print(
+            f"warning: multiple directories found for conversation '{cid}' — using first: {paths}",
+            file=sys.stderr,
+        )
+    return matches[0]
 
 
 def conversation_signature(
