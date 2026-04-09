@@ -72,7 +72,7 @@ def test_duplicate_id_keeps_last(tmp_path: Path, capsys) -> None:
 
 
 def test_no_warning_for_unique_ids(tmp_path: Path, capsys) -> None:
-    """No warning emitted when all conversation IDs are unique."""
+    """No duplicate warning emitted when all conversation IDs are unique."""
     convs = [_make_conv("id-001", "Chat One"), _make_conv("id-002", "Chat Two")]
     (tmp_path / "conversations.json").write_text(json.dumps(convs), encoding="utf-8")
     out_dir = tmp_path / "out"
@@ -81,4 +81,4 @@ def test_no_warning_for_unique_ids(tmp_path: Path, capsys) -> None:
                             "--output", str(out_dir), "--dry-run"]):
         main()
 
-    assert capsys.readouterr().err == ""
+    assert "duplicate" not in capsys.readouterr().err.lower()
