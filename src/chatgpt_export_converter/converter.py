@@ -278,7 +278,7 @@ def build_asset_index(input_dir: Path) -> tuple[dict[str, list[Path]], list[Path
         for file_name in files:
             p = root_path / file_name
             all_files.append(p)
-            match = ASSET_ID_RE.match(file_name)
+            match = ASSET_ID_RE.search(file_name)
             if match:
                 by_asset_id[match.group(1)].append(p)
 
