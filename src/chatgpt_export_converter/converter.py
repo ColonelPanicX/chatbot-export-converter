@@ -381,7 +381,12 @@ def choose_conversation_path(conversation: dict[str, Any]) -> list[dict[str, Any
     current_node = conversation.get("current_node")
     if not current_node or current_node not in mapping:
         nodes = [n for n in mapping.values() if isinstance(n, dict)]
-        nodes.sort(key=lambda n: (n.get("message") or {}).get("create_time") or 0)
+        # Use node ID as a stable secondary key so ordering is deterministic
+        # even when multiple nodes share a missing or zero create_time.
+        nodes.sort(key=lambda n: (
+            (n.get("message") or {}).get("create_time") or 0,
+            n.get("id") or "",
+        ))
         return [n for n in nodes if isinstance(n.get("message"), dict)]
 
     chain: list[dict[str, Any]] = []
