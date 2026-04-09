@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
 import re
 import shutil
 import sys
+import tempfile
+import zipfile
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -37,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Convert ChatGPT export JSON into per-chat markdown folders."
     )
-    parser.add_argument("--input", help="Path to unzipped ChatGPT export")
+    parser.add_argument("--input", help="Path to ChatGPT export (.zip file or unzipped directory)")
     parser.add_argument("--output", help="Path to output folder")
     parser.add_argument(
         "--dry-run",
@@ -80,17 +83,21 @@ def run_wizard(args: argparse.Namespace) -> tuple[Path, Path]:
     print("")
 
     while True:
-        raw = input("Please enter the directory of your unzipped ChatGPT export: ").strip()
+        raw = input("Please enter the path to your ChatGPT export (.zip file or directory): ").strip()
         if not raw:
-            print("A directory path is required.")
+            print("A path is required.")
             continue
-        input_dir = Path(raw).expanduser().resolve()
-        if not input_dir.exists() or not input_dir.is_dir():
-            print(f"Directory not found: {input_dir}")
+        input_path = Path(raw).expanduser().resolve()
+        if not input_path.exists():
+            print(f"Path not found: {input_path}")
             continue
-        break
+        if input_path.is_dir():
+            break
+        if input_path.is_file() and input_path.suffix.lower() == ".zip":
+            break
+        print("Path must be a .zip file or an unzipped directory.")
 
-    output_dir = input_dir.parent / "chats"
+    output_dir = input_path.parent / "chats"
     print(f"\nOutput will be written to: {output_dir}")
     print("A 'chats/' folder will be created/updated in the same parent directory.")
 
@@ -101,7 +108,21 @@ def run_wizard(args: argparse.Namespace) -> tuple[Path, Path]:
         print("Cancelled.")
         raise SystemExit(0)
 
-    return input_dir, output_dir
+    return input_path, output_dir
+
+
+@contextlib.contextmanager
+def extracted_input(input_path: Path):
+    """Yield the input directory, extracting a .zip to a temp dir if needed."""
+    if input_path.is_dir():
+        yield input_path
+        return
+
+    with tempfile.TemporaryDirectory(prefix="chatgpt-export-") as tmp:
+        tmp_dir = Path(tmp)
+        with zipfile.ZipFile(input_path, "r") as zf:
+            zf.extractall(tmp_dir)
+        yield tmp_dir
 
 
 def load_json(path: Path) -> Any:
@@ -681,48 +702,52 @@ def print_summary(summary: Summary) -> None:
 def main() -> int:
     args = parse_args()
     if args.wizard or (not args.input and not args.output):
-        input_dir, output_dir = run_wizard(args)
+        input_path, output_dir = run_wizard(args)
     else:
         if not args.input or not args.output:
             print("error: both --input and --output are required unless using --wizard", file=sys.stderr)
             return 1
-        input_dir = Path(args.input).expanduser().resolve()
+        input_path = Path(args.input).expanduser().resolve()
         output_dir = Path(args.output).expanduser().resolve()
 
-    if not input_dir.exists() or not input_dir.is_dir():
-        print(f"error: input directory not found: {input_dir}", file=sys.stderr)
+    if not input_path.exists():
+        print(f"error: input not found: {input_path}", file=sys.stderr)
+        return 1
+    if not input_path.is_dir() and not (input_path.is_file() and input_path.suffix.lower() == ".zip"):
+        print(f"error: input must be a .zip file or a directory: {input_path}", file=sys.stderr)
         return 1
 
-    conversations, convo_files = load_all_conversations(input_dir)
-    if not conversations:
-        print("error: no conversations found. Expected conversations.json or conversations-*.json", file=sys.stderr)
-        return 1
+    with extracted_input(input_path) as input_dir:
+        conversations, convo_files = load_all_conversations(input_dir)
+        if not conversations:
+            print("error: no conversations found. Expected conversations.json or conversations-*.json", file=sys.stderr)
+            return 1
 
-    unique_by_id: dict[str, dict[str, Any]] = {}
-    for conv in conversations:
-        unique_by_id[conversation_id(conv)] = conv
+        unique_by_id: dict[str, dict[str, Any]] = {}
+        for conv in conversations:
+            unique_by_id[conversation_id(conv)] = conv
 
-    by_asset_id, all_files = build_asset_index(input_dir)
+        by_asset_id, all_files = build_asset_index(input_dir)
 
-    if not args.dry_run:
-        output_dir.mkdir(parents=True, exist_ok=True)
+        if not args.dry_run:
+            output_dir.mkdir(parents=True, exist_ok=True)
 
-    summary = Summary()
+        summary = Summary()
 
-    for conv in unique_by_id.values():
-        try:
-            render_conversation(
-                conv,
-                input_dir,
-                output_dir,
-                by_asset_id,
-                all_files,
-                summary,
-                args.dry_run,
-                args.incremental,
-            )
-        except Exception as exc:  # keep processing on bad records
-            summary.skipped.append((conversation_id(conv), f"exception: {exc}"))
+        for conv in unique_by_id.values():
+            try:
+                render_conversation(
+                    conv,
+                    input_dir,
+                    output_dir,
+                    by_asset_id,
+                    all_files,
+                    summary,
+                    args.dry_run,
+                    args.incremental,
+                )
+            except Exception as exc:  # keep processing on bad records
+                summary.skipped.append((conversation_id(conv), f"exception: {exc}"))
 
     if args.dry_run:
         print("dry-run mode: no files written")
