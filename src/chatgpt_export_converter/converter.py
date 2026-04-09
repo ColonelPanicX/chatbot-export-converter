@@ -495,12 +495,23 @@ def link_for_asset(rel_path: str) -> str:
     return f"[download file]({rel_path})"
 
 
+_PLACEHOLDER_RE = re.compile(
+    r"(!\[image\]|\[(?:download|audio) file\])\(assets/<([^>]+)>\)"
+    r"|assets/<([^>]+)>"
+)
+
+
 def sanitize_text_block(text: str) -> str:
     """Escape placeholder asset patterns that are not real links."""
-    text = re.sub(r"assets/<([^>]+)>", r"assets/&lt;\1&gt;", text)
-    text = text.replace("![image](assets/&lt;", "!\\[image\\](assets/&lt;")
-    text = text.replace("[download file](assets/&lt;", "\\[download file\\](assets/&lt;")
-    return text
+    def _replace(m: re.Match) -> str:
+        if m.group(1):
+            # Full markdown link with a placeholder ID — escape brackets and encode angle brackets.
+            prefix = m.group(1).replace("[", "\\[").replace("]", "\\]")
+            return f"{prefix}(assets/&lt;{m.group(2)}&gt;)"
+        # Bare assets/<id> reference — just encode the angle brackets.
+        return f"assets/&lt;{m.group(3)}&gt;"
+
+    return _PLACEHOLDER_RE.sub(_replace, text)
 
 
 def message_to_markdown(message: dict[str, Any], asset_links: dict[str, list[str]]) -> str:
