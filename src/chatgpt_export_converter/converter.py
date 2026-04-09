@@ -830,8 +830,10 @@ def main() -> int:
             output_dir.mkdir(parents=True, exist_ok=True)
 
         summary = Summary()
+        total = len(unique_by_id)
 
-        for conv in unique_by_id.values():
+        for i, conv in enumerate(unique_by_id.values(), start=1):
+            print(f"\rProcessing {i}/{total}...", end="", flush=True, file=sys.stderr)
             try:
                 render_conversation(
                     conv,
@@ -845,6 +847,8 @@ def main() -> int:
                 )
             except Exception as exc:  # keep processing on bad records
                 summary.skipped.append((conversation_id(conv), f"exception: {exc}"))
+
+        print(file=sys.stderr)  # newline after progress line
 
     if args.dry_run:
         print("dry-run mode: no files written")
