@@ -227,7 +227,8 @@ def load_all_conversations(input_dir: Path) -> tuple[list[dict[str, Any]], list[
     for path in files:
         try:
             data = load_json(path)
-        except Exception:
+        except Exception as exc:
+            print(f"warning: skipping {path}: {exc}", file=sys.stderr)
             continue
         convs = extract_conversations(data)
         if convs:
