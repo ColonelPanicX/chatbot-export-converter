@@ -42,6 +42,12 @@ chats/
     └── assets/
 ```
 
+## Known Limitations
+
+### Unresolved assets in `metadata.json`
+
+Each conversation's `metadata.json` includes an `unresolved_asset_ids` list. An ID appears there when a conversation references a file that isn't present in the export zip. This is a ChatGPT export limitation, not a tool bug — ChatGPT does not always include every referenced asset (e.g. files from conversations outside the export window, deleted content, or assets from older export formats). The transcript is still complete; only those specific attachments are missing.
+
 ## Development
 
 ```bash

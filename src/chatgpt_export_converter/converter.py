@@ -288,6 +288,10 @@ def build_asset_index(input_dir: Path) -> tuple[dict[str, list[Path]], list[Path
 def extract_asset_id(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
+    # Strip URL scheme so "file-service://file-ABC123" → "file-ABC123",
+    # preventing the protocol prefix from being matched as the asset ID.
+    if "://" in value:
+        value = value.split("://", 1)[1]
     match = ASSET_ID_RE.search(value)
     if not match:
         return None
