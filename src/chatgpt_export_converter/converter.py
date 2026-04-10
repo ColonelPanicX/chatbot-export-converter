@@ -79,38 +79,72 @@ def prompt_bool(prompt: str, default: bool = False) -> bool:
         print("Please answer y or n.")
 
 
-def _prompt_input_path() -> Path:
-    """Prompt for a zip file or directory path, validate, and return it."""
+def _find_zip_in_dir(directory: Path) -> Path | None:
+    """Return the export zip from a directory, prompting if multiple are found."""
+    zips = sorted(directory.glob("*.zip"))
+    if not zips:
+        return None
+    if len(zips) == 1:
+        return zips[0]
+    print(f"\n  Found {len(zips)} zip files in {directory}:")
+    for i, z in enumerate(zips, 1):
+        print(f"    [{i}] {z.name}")
     while True:
-        raw = input("Path to your ChatGPT export (.zip file or directory):\n> ").strip()
-        if not raw:
-            print("  A path is required.")
+        raw = input("  > ").strip()
+        try:
+            idx = int(raw) - 1
+            if 0 <= idx < len(zips):
+                return zips[idx]
+        except ValueError:
+            pass
+        print(f"  Please enter a number between 1 and {len(zips)}.")
+
+
+def _prompt_input_path() -> Path:
+    """Prompt for the ChatGPT export zip location."""
+    cwd = Path.cwd()
+    print(f"\nWhere is your ChatGPT export zip?")
+    print(f"  [1] Current directory  ({cwd})")
+    print(f"  [2] Different location")
+
+    while True:
+        choice = input("> ").strip()
+        if choice in {"", "1"}:
+            found = _find_zip_in_dir(cwd)
+            if found:
+                return found
+            print(f"  No .zip file found in {cwd}.")
             continue
-        path = Path(raw).expanduser().resolve()
-        if not path.exists():
-            print(f"  Not found: {path}")
-            continue
-        if path.is_dir():
-            return path
-        if path.is_file() and path.suffix.lower() == ".zip":
-            return path
-        print("  Must be a .zip file or an unzipped directory.")
+        if choice == "2":
+            while True:
+                raw = input("Path to your ChatGPT export zip:\n> ").strip()
+                if not raw:
+                    print("  A path is required.")
+                    continue
+                path = Path(raw).expanduser().resolve()
+                if not path.exists():
+                    print(f"  Not found: {path}")
+                    continue
+                if path.is_file() and path.suffix.lower() == ".zip":
+                    return path
+                if path.is_dir():
+                    found = _find_zip_in_dir(path)
+                    if found:
+                        return found
+                    print(f"  No .zip file found in {path}.")
+                    continue
+                print("  Must be a .zip file.")
+        print("  Please enter 1 or 2.")
 
 
 def _prompt_output_dir(input_path: Path) -> Path:
-    """
-    Ask where to save the converted chats.
-    Option 1 is always the same folder as the input.
-    Option 2 lets the user enter a custom location.
-    Returns the full output path (parent / folder-name).
-    """
+    """Ask where to save the converted chats. Returns the full dated output path."""
     folder_name = _output_folder_name()
-    default_parent = input_path.parent
-    default_output = default_parent / folder_name
+    default_output = input_path.parent / folder_name
 
-    print(f"\nWhere would you like to save the converted chats?")
-    print(f"  [1] Same folder as the input  ({default_output})")
-    print(f"  [2] Choose a different location")
+    print(f"\nWhere should the converted files go?")
+    print(f"  [1] Alongside the export  ({default_output})")
+    print(f"  [2] Different location")
 
     while True:
         choice = input("> ").strip()
@@ -118,7 +152,7 @@ def _prompt_output_dir(input_path: Path) -> Path:
             return default_output
         if choice == "2":
             while True:
-                raw = input("Enter output directory path:\n> ").strip()
+                raw = input("Output directory:\n> ").strip()
                 if not raw:
                     print("  A path is required.")
                     continue
@@ -127,40 +161,25 @@ def _prompt_output_dir(input_path: Path) -> Path:
 
 
 def run_menu(args: argparse.Namespace) -> tuple[Path, Path, bool, bool]:
-    """
-    Interactive menu. Returns (input_path, output_dir, incremental, dry_run).
-    Replaces the old run_wizard.
-    """
+    """Interactive menu. Returns (input_path, output_dir, incremental, dry_run)."""
     print()
     print("=" * 56)
     print("  ChatGPT Export Converter")
     print("=" * 56)
-    print()
 
     input_path = _prompt_input_path()
     output_dir = _prompt_output_dir(input_path)
 
     print()
-    incremental = prompt_bool("Use incremental mode (skip unchanged chats)?", default=True)
-    dry_run = prompt_bool("Dry run only (no files written)?", default=False)
-
-    print()
-    print("Ready to convert.")
     print(f"  Input:  {input_path}")
     print(f"  Output: {output_dir}")
-    mode_flags = []
-    if incremental:
-        mode_flags.append("incremental")
-    if dry_run:
-        mode_flags.append("dry-run")
-    print(f"  Mode:   {', '.join(mode_flags) if mode_flags else 'standard'}")
     print()
 
     if not prompt_bool("Proceed?", default=True):
         print("Cancelled.")
         raise SystemExit(0)
 
-    return input_path, output_dir, incremental, dry_run
+    return input_path, output_dir, args.incremental, args.dry_run
 
 
 def run_wizard(args: argparse.Namespace) -> tuple[Path, Path]:
@@ -804,19 +823,64 @@ def render_conversation(
     summary.conversations_processed += 1
 
 
-def print_summary(summary: Summary) -> None:
-    print("\nConversion summary")
-    print(f"- conversations processed: {summary.conversations_processed}")
-    print(f"- conversations skipped unchanged: {summary.conversations_skipped_unchanged}")
-    print(f"- asset files copied: {summary.assets_copied}")
+def write_summary_file(
+    summary: Summary,
+    output_dir: Path,
+    input_path: Path,
+    total: int,
+    dry_run: bool,
+) -> Path | None:
+    """Write conversion-summary.md to output_dir. Returns the path, or None on dry-run."""
+    if dry_run:
+        return None
+    lines = [
+        "# Conversion Summary",
+        "",
+        f"**Date:** {datetime.now().strftime('%Y-%m-%d')}  ",
+        f"**Input:** {input_path}  ",
+        f"**Output:** {output_dir}  ",
+        "",
+        "## Results",
+        "",
+        f"- **Converted:** {summary.conversations_processed} / {total}",
+        f"- **Failed:** {len(summary.skipped)}",
+        f"- **Skipped unchanged:** {summary.conversations_skipped_unchanged}",
+        f"- **Assets copied:** {summary.assets_copied}",
+        "",
+    ]
     if summary.skipped:
-        print(f"- conversations skipped: {len(summary.skipped)}")
-        for cid, reason in summary.skipped[:50]:
-            print(f"  - {cid}: {reason}")
-        if len(summary.skipped) > 50:
-            print(f"  - ... and {len(summary.skipped) - 50} more")
+        lines += [
+            "## Failures",
+            "",
+            "| Conversation ID | Reason |",
+            "|---|---|",
+        ]
+        for cid, reason in summary.skipped:
+            safe_reason = reason.replace("|", "\\|")
+            lines.append(f"| `{cid}` | {safe_reason} |")
+        lines.append("")
     else:
-        print("- conversations skipped: 0")
+        lines += ["## Failures", "", "None.", ""]
+
+    path = output_dir / "conversion-summary.md"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def print_summary(summary: Summary, total: int, output_dir: Path | None = None) -> None:
+    failed = len(summary.skipped)
+    print()
+    print("=" * 56)
+    if failed:
+        print(f"  {summary.conversations_processed}/{total} conversations converted  ({failed} failed)")
+    else:
+        print(f"  {summary.conversations_processed}/{total} conversations converted")
+    if summary.conversations_skipped_unchanged:
+        print(f"  {summary.conversations_skipped_unchanged} skipped unchanged")
+    print(f"  {summary.assets_copied} assets copied")
+    if output_dir:
+        print(f"\n  Output: {output_dir}")
+    print("=" * 56)
 
 
 def main() -> int:
@@ -865,7 +929,10 @@ def main() -> int:
         total = len(unique_by_id)
 
         for i, conv in enumerate(unique_by_id.values(), start=1):
-            print(f"\rProcessing {i}/{total}...", end="", flush=True, file=sys.stderr)
+            prev_processed = summary.conversations_processed
+            prev_unchanged = summary.conversations_skipped_unchanged
+            prev_skipped = len(summary.skipped)
+
             try:
                 render_conversation(
                     conv,
@@ -880,13 +947,20 @@ def main() -> int:
             except Exception as exc:  # keep processing on bad records
                 summary.skipped.append((conversation_id(conv), f"exception: {exc}"))
 
-        print(file=sys.stderr)  # newline after progress line
+            if summary.conversations_processed > prev_processed:
+                print(f"  {i}/{total} converted")
+            elif summary.conversations_skipped_unchanged > prev_unchanged:
+                print(f"  {i}/{total} skipped (unchanged)")
+            else:
+                reason = summary.skipped[-1][1] if len(summary.skipped) > prev_skipped else "unknown"
+                short = reason[:60] + ("…" if len(reason) > 60 else "")
+                print(f"  {i}/{total} FAILED  ({short})")
 
     if args.dry_run:
-        print("dry-run mode: no files written")
+        print("\ndry-run mode: no files written")
 
-    print(f"discovered conversation files: {len(convo_files)}")
-    print_summary(summary)
+    write_summary_file(summary, output_dir, input_path, total, args.dry_run)
+    print_summary(summary, total, output_dir if not args.dry_run else None)
     return 0
 
 

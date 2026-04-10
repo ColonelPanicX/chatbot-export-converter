@@ -66,9 +66,9 @@ def test_duplicate_id_keeps_last(tmp_path: Path, capsys) -> None:
                             "--output", str(out_dir)]):
         main()
 
-    output_dirs = list(out_dir.iterdir())
-    assert len(output_dirs) == 1
-    assert "second-title" in output_dirs[0].name
+    conv_dirs = [p for p in out_dir.iterdir() if p.is_dir()]
+    assert len(conv_dirs) == 1
+    assert "second-title" in conv_dirs[0].name
 
 
 def test_no_warning_for_unique_ids(tmp_path: Path, capsys) -> None:
