@@ -1,10 +1,10 @@
-"""Tests for build_asset_index search consistency."""
+"""Tests for build_asset_index search consistency and extract_asset_id URL handling."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from chatgpt_export_converter.converter import build_asset_index
+from chatgpt_export_converter.converter import build_asset_index, extract_asset_id
 
 
 def test_filename_starting_with_asset_id_is_indexed(tmp_path: Path) -> None:
@@ -40,3 +40,18 @@ def test_no_false_positives_for_non_asset_files(tmp_path: Path) -> None:
     (tmp_path / "conversations.json").touch()
     by_id, _ = build_asset_index(tmp_path)
     assert len(by_id) == 0
+
+
+def test_extract_asset_id_strips_url_scheme() -> None:
+    """URL-format asset pointers return the ID after the scheme, not the scheme prefix."""
+    assert extract_asset_id("file-service://file-ABC123") == "file-ABC123"
+
+
+def test_extract_asset_id_bare_id_unchanged() -> None:
+    """Bare asset IDs (no scheme) are returned as-is."""
+    assert extract_asset_id("file-ABC123") == "file-ABC123"
+
+
+def test_extract_asset_id_underscore_format_after_scheme() -> None:
+    """Underscore-format IDs after a URL scheme are extracted correctly."""
+    assert extract_asset_id("file-service://file_0000000009e071f8") == "file_0000000009e071f8"
