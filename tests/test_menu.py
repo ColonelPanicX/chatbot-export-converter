@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,6 +12,7 @@ from chatgpt_export_converter.converter import (
     _find_zip_in_dir,
     _output_folder_name,
     _prompt_output_dir,
+    detect_format_from_path,
 )
 
 
@@ -85,3 +88,49 @@ def test_output_placed_in_dated_folder(tmp_path: Path) -> None:
         result = _prompt_output_dir(input_path)
     assert result != tmp_path
     assert result.parent == tmp_path
+
+
+# ---------------------------------------------------------------------------
+# detect_format_from_path
+# ---------------------------------------------------------------------------
+
+def _write_zip(path: Path, conversations: list) -> None:
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("conversations.json", json.dumps(conversations))
+
+
+def test_detect_format_claude_zip(tmp_path: Path) -> None:
+    """Zip with chat_messages key is detected as claude."""
+    zp = tmp_path / "claude.zip"
+    _write_zip(zp, [{"uuid": "x", "chat_messages": []}])
+    assert detect_format_from_path(zp) == "claude"
+
+
+def test_detect_format_chatgpt_zip(tmp_path: Path) -> None:
+    """Zip with mapping key is detected as chatgpt."""
+    zp = tmp_path / "chatgpt.zip"
+    _write_zip(zp, [{"id": "x", "mapping": {}}])
+    assert detect_format_from_path(zp) == "chatgpt"
+
+
+def test_detect_format_claude_dir(tmp_path: Path) -> None:
+    """Directory with chat_messages conversations.json is detected as claude."""
+    (tmp_path / "conversations.json").write_text(
+        json.dumps([{"uuid": "x", "chat_messages": []}])
+    )
+    assert detect_format_from_path(tmp_path) == "claude"
+
+
+def test_detect_format_chatgpt_dir(tmp_path: Path) -> None:
+    """Directory with mapping conversations.json is detected as chatgpt."""
+    (tmp_path / "conversations.json").write_text(
+        json.dumps([{"id": "x", "mapping": {}}])
+    )
+    assert detect_format_from_path(tmp_path) == "chatgpt"
+
+
+def test_detect_format_unknown_for_unrecognised_file(tmp_path: Path) -> None:
+    """Non-zip, non-directory path returns unknown."""
+    f = tmp_path / "data.json"
+    f.write_text("{}")
+    assert detect_format_from_path(f) == "unknown"

@@ -19,7 +19,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 ASSET_ID_RE = re.compile(r"(file[-_][A-Za-z0-9]+)")
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
 
@@ -38,9 +37,9 @@ class Summary:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Convert ChatGPT export JSON into per-chat markdown folders."
+        description="Convert a ChatGPT or Claude export into per-chat markdown folders."
     )
-    parser.add_argument("--input", help="Path to ChatGPT export (.zip file or unzipped directory)")
+    parser.add_argument("--input", help="Path to export (.zip file or unzipped directory)")
     parser.add_argument("--output", help="Path to output folder")
     parser.add_argument(
         "--dry-run",
@@ -51,7 +50,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--incremental",
         action="store_true",
-        help="Only rebuild new/changed conversations; skip unchanged ones.",
+        help="Only rebuild new/changed conversations; skip unchanged ones. (ChatGPT only)",
+    )
+    parser.add_argument(
+        "--include-tool-blocks",
+        action="store_true",
+        help="Include tool_use/tool_result blocks in Claude transcripts. (Claude only)",
     )
     parser.add_argument(
         "--wizard",
@@ -61,9 +65,62 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _output_folder_name() -> str:
-    """Return the dated output folder name: chatgpt-convert-MM.DD.YYYY"""
-    return datetime.now().strftime("chatgpt-convert-%m.%d.%Y")
+def _output_folder_name(fmt: str = "chatgpt") -> str:
+    """Return the dated output folder name based on detected format."""
+    prefix = "claude-convert" if fmt == "claude" else "chatgpt-convert"
+    return datetime.now().strftime(f"{prefix}-%m.%d.%Y")
+
+
+# ---------------------------------------------------------------------------
+# Format detection
+# ---------------------------------------------------------------------------
+
+def _peek_format_from_zip(zip_path: Path) -> str:
+    """Detect export format by reading the first 8 KB of conversations.json in a zip."""
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            names = zf.namelist()
+            conv_name = next((n for n in names if n.endswith("conversations.json")), None)
+            if conv_name is None:
+                return "chatgpt"  # sharded exports are always ChatGPT
+            with zf.open(conv_name) as f:
+                chunk = f.read(8192).decode("utf-8", errors="replace")
+            if '"chat_messages"' in chunk:
+                return "claude"
+            if '"mapping"' in chunk:
+                return "chatgpt"
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _detect_format_from_dir(input_dir: Path) -> str:
+    """Detect export format from an extracted directory."""
+    conv_path = input_dir / "conversations.json"
+    if not conv_path.exists():
+        return "chatgpt"  # sharded or non-standard layout — let existing logic handle it
+    try:
+        with conv_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list) and data:
+            first = data[0]
+            if isinstance(first, dict):
+                if "chat_messages" in first:
+                    return "claude"
+                if "mapping" in first:
+                    return "chatgpt"
+    except Exception:
+        pass
+    return "unknown"
+
+
+def detect_format_from_path(path: Path) -> str:
+    """Detect export format from a zip file or directory without full extraction."""
+    if path.is_file() and path.suffix.lower() == ".zip":
+        return _peek_format_from_zip(path)
+    if path.is_dir():
+        return _detect_format_from_dir(path)
+    return "unknown"
 
 
 def prompt_bool(prompt: str, default: bool = False) -> bool:
@@ -103,9 +160,9 @@ def _find_zip_in_dir(directory: Path) -> Path | None:
 def _prompt_input_path() -> Path:
     """Prompt for the ChatGPT export zip location."""
     cwd = Path.cwd()
-    print(f"\nWhere is your ChatGPT export zip?")
+    print("\nWhere is your ChatGPT export zip?")
     print(f"  [1] Current directory  ({cwd})")
-    print(f"  [2] Different location")
+    print("  [2] Different location")
 
     while True:
         choice = input("> ").strip()
@@ -137,14 +194,14 @@ def _prompt_input_path() -> Path:
         print("  Please enter 1 or 2.")
 
 
-def _prompt_output_dir(input_path: Path) -> Path:
+def _prompt_output_dir(input_path: Path, fmt: str = "chatgpt") -> Path:
     """Ask where to save the converted chats. Returns the full dated output path."""
-    folder_name = _output_folder_name()
+    folder_name = _output_folder_name(fmt)
     default_output = input_path.parent / folder_name
 
-    print(f"\nWhere should the converted files go?")
+    print("\nWhere should the converted files go?")
     print(f"  [1] Alongside the export  ({default_output})")
-    print(f"  [2] Different location")
+    print("  [2] Different location")
 
     while True:
         choice = input("> ").strip()
@@ -160,35 +217,45 @@ def _prompt_output_dir(input_path: Path) -> Path:
         print("  Please enter 1 or 2.")
 
 
-def run_menu(args: argparse.Namespace) -> tuple[Path, Path, bool, bool]:
-    """Interactive menu. Returns (input_path, output_dir, incremental, dry_run)."""
+_FORMAT_LABELS: dict[str, str] = {
+    "chatgpt": "ChatGPT",
+    "claude": "Claude",
+}
+
+
+def run_menu(args: argparse.Namespace) -> tuple[Path, Path, bool, bool, str]:
+    """Interactive menu. Returns (input_path, output_dir, incremental, dry_run, fmt)."""
     print()
     print("=" * 56)
-    print("  ChatGPT Export Converter")
+    print("  ChatGPT / Claude Export Converter")
     print("=" * 56)
 
     input_path = _prompt_input_path()
-    output_dir = _prompt_output_dir(input_path)
+    fmt = detect_format_from_path(input_path)
+    output_dir = _prompt_output_dir(input_path, fmt)
+
+    format_label = _FORMAT_LABELS.get(fmt, "Unknown (will attempt ChatGPT)")
 
     print()
-    print(f"  Input:  {input_path}")
-    print(f"  Output: {output_dir}")
+    print(f"  Input:   {input_path}")
+    print(f"  Format:  {format_label}")
+    print(f"  Output:  {output_dir}")
     print()
 
     if not prompt_bool("Proceed?", default=True):
         print("Cancelled.")
         raise SystemExit(0)
 
-    return input_path, output_dir, args.incremental, args.dry_run
+    return input_path, output_dir, args.incremental, args.dry_run, fmt
 
 
-def run_wizard(args: argparse.Namespace) -> tuple[Path, Path]:
+def run_wizard(args: argparse.Namespace) -> tuple[Path, Path, str]:
     """Deprecated: use run_menu (invoked automatically with no flags)."""
     print("Note: --wizard is deprecated. Running interactive menu.", file=sys.stderr)
-    input_path, output_dir, incremental, dry_run = run_menu(args)
+    input_path, output_dir, incremental, dry_run, fmt = run_menu(args)
     args.incremental = incremental
     args.dry_run = dry_run
-    return input_path, output_dir
+    return input_path, output_dir, fmt
 
 
 @contextlib.contextmanager
@@ -885,11 +952,13 @@ def print_summary(summary: Summary, total: int, output_dir: Path | None = None) 
 
 def main() -> int:
     args = parse_args()
+    fmt = "unknown"
+
     if args.wizard:
         # --wizard is deprecated; delegates to run_menu and patches args
-        input_path, output_dir = run_wizard(args)
+        input_path, output_dir, fmt = run_wizard(args)
     elif not args.input and not args.output:
-        input_path, output_dir, args.incremental, args.dry_run = run_menu(args)
+        input_path, output_dir, args.incremental, args.dry_run, fmt = run_menu(args)
     else:
         if not args.input or not args.output:
             print("error: both --input and --output are required unless using --wizard", file=sys.stderr)
@@ -905,56 +974,75 @@ def main() -> int:
         return 1
 
     with extracted_input(input_path) as input_dir:
-        conversations, convo_files = load_all_conversations(input_dir)
-        if not conversations:
-            print("error: no conversations found. Expected conversations.json or conversations-*.json", file=sys.stderr)
-            return 1
-
-        unique_by_id: dict[str, dict[str, Any]] = {}
-        for conv in conversations:
-            cid = conversation_id(conv)
-            if cid in unique_by_id:
-                print(
-                    f"warning: duplicate conversation ID '{cid}' — keeping last occurrence",
-                    file=sys.stderr,
-                )
-            unique_by_id[cid] = conv
-
-        by_asset_id, all_files = build_asset_index(input_dir)
-
-        if not args.dry_run:
-            output_dir.mkdir(parents=True, exist_ok=True)
+        # For CLI mode (--input/--output), detect format after extraction.
+        if fmt == "unknown":
+            fmt = _detect_format_from_dir(input_dir)
 
         summary = Summary()
-        total = len(unique_by_id)
 
-        for i, conv in enumerate(unique_by_id.values(), start=1):
-            prev_processed = summary.conversations_processed
-            prev_unchanged = summary.conversations_skipped_unchanged
-            prev_skipped = len(summary.skipped)
+        # ── Claude path ──────────────────────────────────────────────────────
+        if fmt == "claude":
+            from chatgpt_export_converter import claude_converter as _claude  # noqa: PLC0415
 
-            try:
-                render_conversation(
-                    conv,
-                    input_dir,
-                    output_dir,
-                    by_asset_id,
-                    all_files,
-                    summary,
-                    args.dry_run,
-                    args.incremental,
+            include_tool_blocks = getattr(args, "include_tool_blocks", False)
+            total = _claude.run_conversion(
+                input_dir, output_dir, summary, args.dry_run, include_tool_blocks
+            )
+
+        # ── ChatGPT path (default) ───────────────────────────────────────────
+        else:
+            conversations, convo_files = load_all_conversations(input_dir)
+            if not conversations:
+                print(
+                    "error: no conversations found. Expected conversations.json or conversations-*.json",
+                    file=sys.stderr,
                 )
-            except Exception as exc:  # keep processing on bad records
-                summary.skipped.append((conversation_id(conv), f"exception: {exc}"))
+                return 1
 
-            if summary.conversations_processed > prev_processed:
-                print(f"  {i}/{total} converted")
-            elif summary.conversations_skipped_unchanged > prev_unchanged:
-                print(f"  {i}/{total} skipped (unchanged)")
-            else:
-                reason = summary.skipped[-1][1] if len(summary.skipped) > prev_skipped else "unknown"
-                short = reason[:60] + ("…" if len(reason) > 60 else "")
-                print(f"  {i}/{total} FAILED  ({short})")
+            unique_by_id: dict[str, dict[str, Any]] = {}
+            for conv in conversations:
+                cid = conversation_id(conv)
+                if cid in unique_by_id:
+                    print(
+                        f"warning: duplicate conversation ID '{cid}' — keeping last occurrence",
+                        file=sys.stderr,
+                    )
+                unique_by_id[cid] = conv
+
+            by_asset_id, all_files = build_asset_index(input_dir)
+
+            if not args.dry_run:
+                output_dir.mkdir(parents=True, exist_ok=True)
+
+            total = len(unique_by_id)
+
+            for i, conv in enumerate(unique_by_id.values(), start=1):
+                prev_processed = summary.conversations_processed
+                prev_unchanged = summary.conversations_skipped_unchanged
+                prev_skipped = len(summary.skipped)
+
+                try:
+                    render_conversation(
+                        conv,
+                        input_dir,
+                        output_dir,
+                        by_asset_id,
+                        all_files,
+                        summary,
+                        args.dry_run,
+                        args.incremental,
+                    )
+                except Exception as exc:  # keep processing on bad records
+                    summary.skipped.append((conversation_id(conv), f"exception: {exc}"))
+
+                if summary.conversations_processed > prev_processed:
+                    print(f"  {i}/{total} converted")
+                elif summary.conversations_skipped_unchanged > prev_unchanged:
+                    print(f"  {i}/{total} skipped (unchanged)")
+                else:
+                    reason = summary.skipped[-1][1] if len(summary.skipped) > prev_skipped else "unknown"
+                    short = reason[:60] + ("…" if len(reason) > 60 else "")
+                    print(f"  {i}/{total} FAILED  ({short})")
 
     if args.dry_run:
         print("\ndry-run mode: no files written")
