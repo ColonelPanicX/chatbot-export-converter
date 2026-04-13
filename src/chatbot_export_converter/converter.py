@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
 
 def _output_folder_name(fmt: str = "chatgpt") -> str:
     """Return the dated output folder name based on detected format."""
-    prefix = "claude-convert" if fmt == "claude" else "chatgpt-convert"
+    prefix = "claude-convert" if fmt == "claude" else "chatbot-convert"
     return datetime.now().strftime(f"{prefix}-%m.%d.%Y")
 
 
@@ -1017,7 +1017,7 @@ def main() -> int:
 
         # ── Claude path ──────────────────────────────────────────────────────
         if fmt == "claude":
-            from chatgpt_export_converter import claude_converter as _claude  # noqa: PLC0415
+            from chatbot_export_converter import claude_converter as _claude  # noqa: PLC0415
 
             include_tool_blocks = getattr(args, "include_tool_blocks", False)
             total = _claude.run_conversion(

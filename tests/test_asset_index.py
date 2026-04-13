@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from chatgpt_export_converter.converter import build_asset_index, extract_asset_id
+from chatbot_export_converter.converter import build_asset_index, extract_asset_id
 
 
 def test_filename_starting_with_asset_id_is_indexed(tmp_path: Path) -> None:

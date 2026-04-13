@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from chatgpt_export_converter.converter import extracted_input
+from chatbot_export_converter.converter import extracted_input
 
 
 def make_zip(tmp_path: Path, files: dict[str, str]) -> Path:

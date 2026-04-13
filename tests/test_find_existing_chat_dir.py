@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from chatgpt_export_converter.converter import find_existing_chat_dir
+from chatbot_export_converter.converter import find_existing_chat_dir
 
 
 def test_returns_none_when_output_dir_missing(tmp_path: Path) -> None:

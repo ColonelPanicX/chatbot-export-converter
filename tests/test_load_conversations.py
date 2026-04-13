@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from chatgpt_export_converter.converter import load_all_conversations
+from chatbot_export_converter.converter import load_all_conversations
 
 
 def test_malformed_json_emits_warning(tmp_path: Path, capsys) -> None:

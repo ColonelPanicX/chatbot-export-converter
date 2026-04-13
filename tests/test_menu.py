@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from chatgpt_export_converter.converter import (
+from chatbot_export_converter.converter import (
     _find_zip_in_dir,
     _output_folder_name,
     _prompt_output_dir,
@@ -20,14 +20,14 @@ from chatgpt_export_converter.converter import (
 #   _ask_path(message, only_directories=False) -> str
 #   _ask_confirm(message, default=True) -> bool
 # Tests patch these so no real terminal is needed.
-_MOD = "chatgpt_export_converter.converter"
+_MOD = "chatbot_export_converter.converter"
 
 
 def test_output_folder_name_format() -> None:
-    """Output folder name matches chatgpt-convert-MM.DD.YYYY."""
+    """Output folder name matches chatbot-convert-MM.DD.YYYY."""
     name = _output_folder_name()
     assert re.match(
-        r"chatgpt-convert-\d{2}\.\d{2}\.\d{4}$", name
+        r"chatbot-convert-\d{2}\.\d{2}\.\d{4}$", name
     ), f"Unexpected folder name format: {name}"
 
 
@@ -63,7 +63,7 @@ def test_prompt_output_dir_default(tmp_path: Path) -> None:
     with patch(f"{_MOD}._ask_select", return_value="__default__"):
         result = _prompt_output_dir(input_path)
     assert result.parent == tmp_path
-    assert result.name.startswith("chatgpt-convert-")
+    assert result.name.startswith("chatbot-convert-")
 
 
 def test_prompt_output_dir_custom(tmp_path: Path) -> None:
@@ -77,7 +77,7 @@ def test_prompt_output_dir_custom(tmp_path: Path) -> None:
     ):
         result = _prompt_output_dir(input_path)
     assert result.parent == custom_parent
-    assert result.name.startswith("chatgpt-convert-")
+    assert result.name.startswith("chatbot-convert-")
 
 
 def test_output_placed_in_dated_folder(tmp_path: Path) -> None:

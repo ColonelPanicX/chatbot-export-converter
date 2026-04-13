@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import message_to_markdown
+from chatbot_export_converter.converter import message_to_markdown
 
 
 def _msg(role: str, ctype: str, **content_fields) -> dict:

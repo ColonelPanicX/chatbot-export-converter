@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import choose_conversation_path
+from chatbot_export_converter.converter import choose_conversation_path
 
 
 def _node(node_id: str, create_time: float | None = None) -> dict:

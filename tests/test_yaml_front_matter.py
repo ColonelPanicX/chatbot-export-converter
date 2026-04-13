@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import _yaml_str, dump_yaml_front_matter
+from chatbot_export_converter.converter import _yaml_str, dump_yaml_front_matter
 
 # ---------------------------------------------------------------------------
 # _yaml_str escaping
