@@ -1017,7 +1017,7 @@ def main() -> int:
 
         # ── Claude path ──────────────────────────────────────────────────────
         if fmt == "claude":
-            from chatgpt_export_converter import claude_converter as _claude  # noqa: PLC0415
+            from chatbot_export_converter import claude_converter as _claude  # noqa: PLC0415
 
             include_tool_blocks = getattr(args, "include_tool_blocks", False)
             total = _claude.run_conversion(

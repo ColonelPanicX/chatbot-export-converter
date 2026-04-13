@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import date_from_timestamp
+from chatbot_export_converter.converter import date_from_timestamp
 
 
 def test_valid_timestamp_returns_iso_date() -> None:

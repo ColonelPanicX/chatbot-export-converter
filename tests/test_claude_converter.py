@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from chatgpt_export_converter.claude_converter import (
+from chatbot_export_converter.claude_converter import (
     _render_thinking_block,
     _render_tool_result_block,
     _render_tool_use_block,
@@ -21,7 +21,7 @@ from chatgpt_export_converter.claude_converter import (
     run_conversion,
     safe_title,
 )
-from chatgpt_export_converter.converter import Summary
+from chatbot_export_converter.converter import Summary
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures

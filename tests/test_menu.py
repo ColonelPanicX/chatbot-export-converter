@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from chatgpt_export_converter.converter import (
+from chatbot_export_converter.converter import (
     _find_zip_in_dir,
     _output_folder_name,
     _prompt_output_dir,
@@ -20,14 +20,22 @@ from chatgpt_export_converter.converter import (
 #   _ask_path(message, only_directories=False) -> str
 #   _ask_confirm(message, default=True) -> bool
 # Tests patch these so no real terminal is needed.
-_MOD = "chatgpt_export_converter.converter"
+_MOD = "chatbot_export_converter.converter"
 
 
 def test_output_folder_name_format() -> None:
-    """Output folder name matches chatgpt-convert-MM.DD.YYYY."""
+    """Output folder name matches chatgpt-convert-MM.DD.YYYY for ChatGPT format."""
     name = _output_folder_name()
     assert re.match(
         r"chatgpt-convert-\d{2}\.\d{2}\.\d{4}$", name
+    ), f"Unexpected folder name format: {name}"
+
+
+def test_output_folder_name_claude_format() -> None:
+    """Output folder name matches claude-convert-MM.DD.YYYY for Claude format."""
+    name = _output_folder_name("claude")
+    assert re.match(
+        r"claude-convert-\d{2}\.\d{2}\.\d{4}$", name
     ), f"Unexpected folder name format: {name}"
 
 

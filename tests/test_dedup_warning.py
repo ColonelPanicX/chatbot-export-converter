@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from chatgpt_export_converter.converter import main
+from chatbot_export_converter.converter import main
 
 
 def _make_conv(cid: str, title: str) -> dict:
@@ -49,7 +49,7 @@ def test_duplicate_id_emits_warning(tmp_path: Path, capsys) -> None:
 
     with patch(
         "sys.argv",
-        ["chatgpt-convert", "--input", str(tmp_path), "--output", str(out_dir), "--dry-run"],
+        ["chatbot-convert", "--input", str(tmp_path), "--output", str(out_dir), "--dry-run"],
     ):
         main()
 
@@ -68,7 +68,7 @@ def test_duplicate_id_keeps_last(tmp_path: Path, capsys) -> None:
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    with patch("sys.argv", ["chatgpt-convert", "--input", str(tmp_path), "--output", str(out_dir)]):
+    with patch("sys.argv", ["chatbot-convert", "--input", str(tmp_path), "--output", str(out_dir)]):
         main()
 
     conv_dirs = [p for p in out_dir.iterdir() if p.is_dir()]
@@ -84,7 +84,7 @@ def test_no_warning_for_unique_ids(tmp_path: Path, capsys) -> None:
 
     with patch(
         "sys.argv",
-        ["chatgpt-convert", "--input", str(tmp_path), "--output", str(out_dir), "--dry-run"],
+        ["chatbot-convert", "--input", str(tmp_path), "--output", str(out_dir), "--dry-run"],
     ):
         main()
 

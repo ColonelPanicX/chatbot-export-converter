@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from chatgpt_export_converter.converter import Summary, render_conversation
+from chatbot_export_converter.converter import Summary, render_conversation
 
 
 def _simple_conversation(cid: str = "test-conv-001") -> dict:
@@ -87,7 +87,7 @@ def test_temp_dir_cleaned_up_on_write_failure(tmp_path: Path) -> None:
     conv = _simple_conversation("fail-conv-001")
 
     with patch(
-        "chatgpt_export_converter.converter.dump_yaml_front_matter",
+        "chatbot_export_converter.converter.dump_yaml_front_matter",
         side_effect=RuntimeError("simulated write failure"),
     ):
         with pytest.raises(RuntimeError, match="simulated write failure"):

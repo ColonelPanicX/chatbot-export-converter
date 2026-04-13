@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "chatgpt-export-converter"
+name = "chatbot-export-converter"
 version = "0.1.0"
-description = "Convert a ChatGPT data export into browsable per-conversation markdown folders"
+description = "Convert ChatGPT and Claude data exports into browsable per-conversation markdown folders"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 readme = "README.md"
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-chatgpt-convert = "chatgpt_export_converter.converter:main"
+chatbot-convert = "chatbot_export_converter.converter:main"
 
 [dependency-groups]
 dev = [

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import conversation_signature
+from chatbot_export_converter.converter import conversation_signature
 
 
 def _msg(mid: str, create_time: float, update_time: float | None = None) -> dict:
