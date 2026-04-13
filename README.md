@@ -14,6 +14,8 @@ Convert ChatGPT and Claude data exports into browsable per-conversation markdown
 
 ```bash
 pipx install .
+# or, if you have uv:
+uv tool install .
 ```
 
 ### 3. Run
