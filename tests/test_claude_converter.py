@@ -391,7 +391,7 @@ class TestRenderConversation:
         dirs = list(output.iterdir())
         assert len(dirs) == 1
         assert (dirs[0] / "transcript.md").exists()
-        assert (dirs[0] / "metadata.json").exists()
+        assert not (dirs[0] / "metadata.json").exists()
 
     def test_increments_summary_processed(self, tmp_path: Path) -> None:
         summary = Summary()
@@ -446,17 +446,17 @@ class TestRenderConversation:
         assert "my-uuid-1234" in chat_dir.name
         assert "2025-09-24" in chat_dir.name
 
-    def test_metadata_json_structure(self, tmp_path: Path) -> None:
+    def test_stats_in_frontmatter(self, tmp_path: Path) -> None:
         output = tmp_path / "out"
         summary = Summary()
         render_conversation(
             _simple_conv(), output, summary, dry_run=False, include_tool_blocks=False
         )
         chat_dir = next(output.iterdir())
-        meta = json.loads((chat_dir / "metadata.json").read_text())
-        assert "conversation_id" in meta
-        assert "stats" in meta
-        assert "messages_in_path" in meta["stats"]
+        transcript = (chat_dir / "transcript.md").read_text()
+        assert "messages_in_path:" in transcript
+        assert "total_messages:" in transcript
+        assert "had_branches:" in transcript
 
     def test_branched_note_in_transcript(self, tmp_path: Path) -> None:
         messages = [

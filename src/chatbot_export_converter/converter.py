@@ -702,12 +702,26 @@ def _yaml_str(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def dump_yaml_front_matter(conversation: dict[str, Any]) -> str:
+def dump_yaml_front_matter(
+    conversation: dict[str, Any],
+    *,
+    has_chat_html: bool = False,
+    selected_messages: int = 0,
+    total_message_nodes: int = 0,
+    has_prior_versions: bool = False,
+    asset_ids_detected: int = 0,
+    asset_ids_resolved: int = 0,
+    asset_ids_unresolved: int = 0,
+    source_signature: str = "",
+    unresolved_asset_ids: list[str] | None = None,
+) -> str:
     title = str(conversation.get("title") or "untitled")
     cid = str(conversation.get("id") or conversation.get("conversation_id") or "")
     created_at = to_iso(conversation.get("create_time"))
     updated_at = to_iso(conversation.get("update_time"))
     archived = bool(conversation.get("is_archived", False))
+    ids = unresolved_asset_ids or []
+    ids_yaml = "[" + ", ".join(_yaml_str(i) for i in ids) + "]"
 
     return "\n".join(
         [
@@ -718,10 +732,32 @@ def dump_yaml_front_matter(conversation: dict[str, Any]) -> str:
             f"updated_at: {_yaml_str(updated_at)}",
             f"archived: {str(archived).lower()}",
             'source: "chatgpt-data-export"',
+            f"has_chat_html: {str(has_chat_html).lower()}",
+            f"selected_messages: {selected_messages}",
+            f"total_message_nodes: {total_message_nodes}",
+            f"has_prior_versions: {str(has_prior_versions).lower()}",
+            f"asset_ids_detected: {asset_ids_detected}",
+            f"asset_ids_resolved: {asset_ids_resolved}",
+            f"asset_ids_unresolved: {asset_ids_unresolved}",
+            f"source_signature: {_yaml_str(source_signature)}",
+            f"unresolved_asset_ids: {ids_yaml}",
             "---",
             "",
         ]
     )
+
+
+def _read_signature_from_transcript(transcript_path: Path) -> str | None:
+    """Extract source_signature value from the YAML frontmatter of a transcript.md."""
+    try:
+        for line in transcript_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("source_signature:"):
+                m = re.match(r'source_signature:\s+"(.*)"', line)
+                if m:
+                    return m.group(1).replace('\\"', '"').replace("\\\\", "\\")
+    except Exception:
+        pass
+    return None
 
 
 def conversation_id(conv: dict[str, Any]) -> str:
@@ -822,12 +858,10 @@ def render_conversation(
     )
 
     if incremental and existing_chat_dir and not dry_run:
-        metadata_path = existing_chat_dir / "metadata.json"
         transcript_path = existing_chat_dir / "transcript.md"
-        if metadata_path.exists() and transcript_path.exists():
+        if transcript_path.exists():
             try:
-                existing_meta = json.loads(metadata_path.read_text(encoding="utf-8"))
-                if existing_meta.get("source_signature") == signature:
+                if _read_signature_from_transcript(transcript_path) == signature:
                     if existing_chat_dir != desired_chat_dir:
                         if desired_chat_dir.exists():
                             shutil.rmtree(desired_chat_dir)
@@ -867,7 +901,20 @@ def render_conversation(
         )
         summary.assets_copied += copied_count
 
-        transcript_parts: list[str] = [dump_yaml_front_matter(conversation)]
+        transcript_parts: list[str] = [
+            dump_yaml_front_matter(
+                conversation,
+                has_chat_html=(input_dir / "chat.html").exists(),
+                selected_messages=len(selected_messages),
+                total_message_nodes=total_message_nodes,
+                has_prior_versions=has_prior_versions,
+                asset_ids_detected=len(conv_asset_ids),
+                asset_ids_resolved=len(asset_links),
+                asset_ids_unresolved=len(unresolved_assets),
+                source_signature=signature,
+                unresolved_asset_ids=unresolved_assets,
+            )
+        ]
 
         if has_prior_versions:
             transcript_parts.append(
@@ -882,28 +929,6 @@ def render_conversation(
 
         if not dry_run:
             (chat_dir / "transcript.md").write_text(transcript, encoding="utf-8")
-
-            metadata_out = {
-                "conversation_id": cid,
-                "title": title,
-                "source_files": {
-                    "has_chat_html": (input_dir / "chat.html").exists(),
-                },
-                "stats": {
-                    "selected_messages": len(selected_messages),
-                    "total_message_nodes": total_message_nodes,
-                    "has_prior_versions": has_prior_versions,
-                    "asset_ids_detected": len(conv_asset_ids),
-                    "asset_ids_resolved": len(asset_links),
-                    "asset_ids_unresolved": len(unresolved_assets),
-                },
-                "source_signature": signature,
-                "unresolved_asset_ids": unresolved_assets,
-            }
-            (chat_dir / "metadata.json").write_text(
-                json.dumps(metadata_out, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
             # Atomic swap: fully-written tmp_dir replaces desired_chat_dir.
             if desired_chat_dir.exists():
                 shutil.rmtree(desired_chat_dir)
