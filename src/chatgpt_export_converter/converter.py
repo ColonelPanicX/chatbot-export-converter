@@ -14,7 +14,7 @@ import sys
 import tempfile
 import zipfile
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -30,11 +30,7 @@ class Summary:
     conversations_processed: int = 0
     assets_copied: int = 0
     conversations_skipped_unchanged: int = 0
-    skipped: list[tuple[str, str]] | None = None
-
-    def __post_init__(self) -> None:
-        if self.skipped is None:
-            self.skipped = []
+    skipped: list[tuple[str, str]] = field(default_factory=list)
 
 
 def parse_args() -> argparse.Namespace:
@@ -76,6 +72,7 @@ def _output_folder_name(fmt: str = "chatgpt") -> str:
 # ---------------------------------------------------------------------------
 # Format detection
 # ---------------------------------------------------------------------------
+
 
 def _peek_format_from_zip(zip_path: Path) -> str:
     """Detect export format by reading the first 8 KB of conversations.json in a zip."""
@@ -130,22 +127,23 @@ def detect_format_from_path(path: Path) -> str:
 # and keeps the rest of the code easy to test by patching these three names.
 # ---------------------------------------------------------------------------
 
+
 def _ask_select(message: str, choices: list) -> str:
-    result = questionary.select(message, choices=choices).ask()
+    result: str | None = questionary.select(message, choices=choices).ask()
     if result is None:
         raise SystemExit(0)
     return result
 
 
 def _ask_path(message: str, only_directories: bool = False) -> str:
-    result = questionary.path(message, only_directories=only_directories).ask()
+    result: str | None = questionary.path(message, only_directories=only_directories).ask()
     if result is None:
         raise SystemExit(0)
     return result
 
 
 def _ask_confirm(message: str, default: bool = True) -> bool:
-    result = questionary.confirm(message, default=default).ask()
+    result: bool | None = questionary.confirm(message, default=default).ask()
     if result is None:
         raise SystemExit(0)
     return result
@@ -174,8 +172,7 @@ def _prompt_input_path() -> Path:
 
     _BROWSE = "__browse__"
     choices = [
-        questionary.Choice(title=f"{z.name}  (current directory)", value=str(z))
-        for z in cwd_zips
+        questionary.Choice(title=f"{z.name}  (current directory)", value=str(z)) for z in cwd_zips
     ]
     choices.append(questionary.Choice(title="Browse to a different file…", value=_BROWSE))
 
@@ -390,9 +387,15 @@ def extract_asset_id(value: Any) -> str | None:
     return match.group(1)
 
 
-_ASSET_KEYS = frozenset({
-    "asset_pointer", "watermarked_asset_pointer", "asset_pointer_link", "file_id", "asset_id",
-})
+_ASSET_KEYS = frozenset(
+    {
+        "asset_pointer",
+        "watermarked_asset_pointer",
+        "asset_pointer_link",
+        "file_id",
+        "asset_id",
+    }
+)
 _MAX_COLLECT_DEPTH = 20
 
 
@@ -487,10 +490,12 @@ def choose_conversation_path(conversation: dict[str, Any]) -> list[dict[str, Any
         nodes = [n for n in mapping.values() if isinstance(n, dict)]
         # Use node ID as a stable secondary key so ordering is deterministic
         # even when multiple nodes share a missing or zero create_time.
-        nodes.sort(key=lambda n: (
-            (n.get("message") or {}).get("create_time") or 0,
-            n.get("id") or "",
-        ))
+        nodes.sort(
+            key=lambda n: (
+                (n.get("message") or {}).get("create_time") or 0,
+                n.get("id") or "",
+            )
+        )
         return [n for n in nodes if isinstance(n.get("message"), dict)]
 
     chain: list[dict[str, Any]] = []
@@ -592,13 +597,13 @@ def link_for_asset(rel_path: str) -> str:
 
 
 _PLACEHOLDER_RE = re.compile(
-    r"(!\[image\]|\[(?:download|audio) file\])\(assets/<([^>]+)>\)"
-    r"|assets/<([^>]+)>"
+    r"(!\[image\]|\[(?:download|audio) file\])\(assets/<([^>]+)>\)" r"|assets/<([^>]+)>"
 )
 
 
 def sanitize_text_block(text: str) -> str:
     """Escape placeholder asset patterns that are not real links."""
+
     def _replace(m: re.Match) -> str:
         if m.group(1):
             # Full markdown link with a placeholder ID — escape brackets and encode angle brackets.
@@ -620,7 +625,11 @@ def message_to_markdown(message: dict[str, Any], asset_links: dict[str, list[str
 
     lines: list[str] = [f"## {heading}"]
 
-    if role == "tool" or ctype.startswith("tether_") or ctype in {"execution_output", "system_error"}:
+    if (
+        role == "tool"
+        or ctype.startswith("tether_")
+        or ctype in {"execution_output", "system_error"}
+    ):
         cmd = metadata.get("command")
         cmd_txt = f" {cmd}" if isinstance(cmd, str) and cmd else ""
         lines.append(f"> [tool] {ctype}{cmd_txt}")
@@ -652,7 +661,6 @@ def message_to_markdown(message: dict[str, Any], asset_links: dict[str, list[str
                 if not isinstance(part, dict):
                     continue
 
-                p_ctype = str(part.get("content_type") or "")
                 p_text = part.get("text")
                 if isinstance(p_text, str) and p_text.strip():
                     lines.append(sanitize_text_block(p_text))
@@ -675,13 +683,13 @@ def message_to_markdown(message: dict[str, Any], asset_links: dict[str, list[str
     for attachment in attachments:
         if not isinstance(attachment, dict):
             continue
-        aid = attachment.get("id")
-        if not isinstance(aid, str) or aid in emitted_ids:
+        att_aid: str | None = attachment.get("id")
+        if not isinstance(att_aid, str) or att_aid in emitted_ids:
             continue
-        for rel in asset_links.get(aid, []):
+        for rel in asset_links.get(att_aid, []):
             lines.append(link_for_asset(rel))
-        if aid in asset_links:
-            emitted_ids.add(aid)
+        if att_aid in asset_links:
+            emitted_ids.add(att_aid)
 
     if len(lines) == 1:
         lines.append("(no content)")
@@ -790,7 +798,11 @@ def render_conversation(
     existing_chat_dir = find_existing_chat_dir(output_dir, cid)
     chat_dir = desired_chat_dir
 
-    selected_messages: list[dict[str, Any]] = [n.get("message") for n in convo_path_nodes if isinstance(n.get("message"), dict)]
+    selected_messages: list[dict[str, Any]] = []
+    for _n in convo_path_nodes:
+        _msg = _n.get("message")
+        if isinstance(_msg, dict):
+            selected_messages.append(_msg)
 
     conv_asset_ids: list[str] = []
     seen_assets = set()
@@ -801,9 +813,13 @@ def render_conversation(
                 seen_assets.add(aid)
 
     mapping = conversation.get("mapping") or {}
-    total_message_nodes = sum(1 for node in mapping.values() if isinstance((node or {}).get("message"), dict))
+    total_message_nodes = sum(
+        1 for node in mapping.values() if isinstance((node or {}).get("message"), dict)
+    )
     has_prior_versions = total_message_nodes > len(selected_messages)
-    signature = conversation_signature(conversation, selected_messages, conv_asset_ids, total_message_nodes)
+    signature = conversation_signature(
+        conversation, selected_messages, conv_asset_ids, total_message_nodes
+    )
 
     if incremental and existing_chat_dir and not dry_run:
         metadata_path = existing_chat_dir / "metadata.json"
@@ -823,7 +839,11 @@ def render_conversation(
 
     if not dry_run:
         # If an existing dir needs to be renamed (title/date changed), do that first.
-        if existing_chat_dir and existing_chat_dir != desired_chat_dir and existing_chat_dir.exists():
+        if (
+            existing_chat_dir
+            and existing_chat_dir != desired_chat_dir
+            and existing_chat_dir.exists()
+        ):
             if desired_chat_dir.exists():
                 shutil.rmtree(desired_chat_dir)
             existing_chat_dir.rename(desired_chat_dir)
@@ -851,7 +871,8 @@ def render_conversation(
 
         if has_prior_versions:
             transcript_parts.append(
-                "> [note] Conversation contained edited/branched history. This transcript follows the final path to `current_node`."
+                "> [note] Conversation contained edited/branched history."
+                " This transcript follows the final path to `current_node`."
             )
 
         for message in selected_messages:
@@ -945,7 +966,10 @@ def print_summary(summary: Summary, total: int, output_dir: Path | None = None) 
     print()
     print("=" * 56)
     if failed:
-        print(f"  {summary.conversations_processed}/{total} conversations converted  ({failed} failed)")
+        print(
+            f"  {summary.conversations_processed}/{total} conversations converted"
+            f"  ({failed} failed)"
+        )
     else:
         print(f"  {summary.conversations_processed}/{total} conversations converted")
     if summary.conversations_skipped_unchanged:
@@ -967,7 +991,10 @@ def main() -> int:
         input_path, output_dir, args.incremental, args.dry_run, fmt = run_menu(args)
     else:
         if not args.input or not args.output:
-            print("error: both --input and --output are required unless using --wizard", file=sys.stderr)
+            print(
+                "error: both --input and --output are required unless using --wizard",
+                file=sys.stderr,
+            )
             return 1
         input_path = Path(args.input).expanduser().resolve()
         output_dir = Path(args.output).expanduser().resolve()
@@ -975,7 +1002,9 @@ def main() -> int:
     if not input_path.exists():
         print(f"error: input not found: {input_path}", file=sys.stderr)
         return 1
-    if not input_path.is_dir() and not (input_path.is_file() and input_path.suffix.lower() == ".zip"):
+    if not input_path.is_dir() and not (
+        input_path.is_file() and input_path.suffix.lower() == ".zip"
+    ):
         print(f"error: input must be a .zip file or a directory: {input_path}", file=sys.stderr)
         return 1
 
@@ -1000,7 +1029,8 @@ def main() -> int:
             conversations, convo_files = load_all_conversations(input_dir)
             if not conversations:
                 print(
-                    "error: no conversations found. Expected conversations.json or conversations-*.json",
+                    "error: no conversations found."
+                    " Expected conversations.json or conversations-*.json",
                     file=sys.stderr,
                 )
                 return 1
@@ -1046,7 +1076,9 @@ def main() -> int:
                 elif summary.conversations_skipped_unchanged > prev_unchanged:
                     print(f"  {i}/{total} skipped (unchanged)")
                 else:
-                    reason = summary.skipped[-1][1] if len(summary.skipped) > prev_skipped else "unknown"
+                    reason = (
+                        summary.skipped[-1][1] if len(summary.skipped) > prev_skipped else "unknown"
+                    )
                     short = reason[:60] + ("…" if len(reason) > 60 else "")
                     print(f"  {i}/{total} FAILED  ({short})")
 

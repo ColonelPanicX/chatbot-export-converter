@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import collect_asset_ids_from_obj, _MAX_COLLECT_DEPTH
+from chatgpt_export_converter.converter import _MAX_COLLECT_DEPTH, collect_asset_ids_from_obj
 
 
 def test_asset_pointer_key_collected() -> None:

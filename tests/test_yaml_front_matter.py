@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import dump_yaml_front_matter, _yaml_str
-
+from chatgpt_export_converter.converter import _yaml_str, dump_yaml_front_matter
 
 # ---------------------------------------------------------------------------
 # _yaml_str escaping
 # ---------------------------------------------------------------------------
+
 
 def test_yaml_str_plain() -> None:
     assert _yaml_str("hello") == '"hello"'
@@ -28,6 +28,7 @@ def test_yaml_str_empty() -> None:
 # ---------------------------------------------------------------------------
 # dump_yaml_front_matter
 # ---------------------------------------------------------------------------
+
 
 def test_archived_false_is_bare_boolean() -> None:
     conv = {"id": "c1", "title": "Test", "is_archived": False}

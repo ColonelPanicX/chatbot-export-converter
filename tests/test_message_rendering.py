@@ -25,22 +25,20 @@ def test_thoughts_multiline_all_lines_quoted() -> None:
     output = message_to_markdown(msg, {})
     lines = output.splitlines()
     # Every non-empty content line must start with ">"
-    content_lines = [l for l in lines if l.strip() and not l.startswith("##")]
-    assert all(l.startswith(">") for l in content_lines), (
-        f"Not all lines are quoted:\n{output}"
-    )
+    content_lines = [ln for ln in lines if ln.strip() and not ln.startswith("##")]
+    assert all(ln.startswith(">") for ln in content_lines), f"Not all lines are quoted:\n{output}"
 
 
 def test_reasoning_recap_multiline_all_lines_quoted() -> None:
     msg = _msg("assistant", "reasoning_recap", text="Step 1.\n\nStep 2.")
     output = message_to_markdown(msg, {})
     lines = output.splitlines()
-    content_lines = [l for l in lines if l.strip() and not l.startswith("##")]
-    assert all(l.startswith(">") for l in content_lines)
+    content_lines = [ln for ln in lines if ln.strip() and not ln.startswith("##")]
+    assert all(ln.startswith(">") for ln in content_lines)
 
 
 def test_plain_text_not_blockquoted() -> None:
     msg = _msg("user", "text", parts=["Hello there."])
     output = message_to_markdown(msg, {})
     assert "Hello there." in output
-    assert not any(l.startswith(">") for l in output.splitlines() if "Hello" in l)
+    assert not any(ln.startswith(">") for ln in output.splitlines() if "Hello" in ln)
