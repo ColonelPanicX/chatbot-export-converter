@@ -68,7 +68,7 @@ def test_output_written_to_desired_dir(tmp_path: Path) -> None:
     assert len(output_dirs) == 1
     chat_dir = output_dirs[0]
     assert (chat_dir / "transcript.md").exists()
-    assert (chat_dir / "metadata.json").exists()
+    assert not (chat_dir / "metadata.json").exists()
 
 
 def test_no_temp_dir_left_on_success(tmp_path: Path) -> None:

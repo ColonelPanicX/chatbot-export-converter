@@ -247,7 +247,13 @@ def _yaml_str(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def dump_yaml_front_matter(conv: dict[str, Any]) -> str:
+def dump_yaml_front_matter(
+    conv: dict[str, Any],
+    *,
+    messages_in_path: int = 0,
+    total_messages: int = 0,
+    had_branches: bool = False,
+) -> str:
     title = str(conv.get("name") or "untitled")
     cid = str(conv.get("uuid") or "")
     created_at = str(conv.get("created_at") or "")
@@ -261,6 +267,9 @@ def dump_yaml_front_matter(conv: dict[str, Any]) -> str:
             f"created_at: {_yaml_str(created_at)}",
             f"updated_at: {_yaml_str(updated_at)}",
             'source: "claude-data-export"',
+            f"messages_in_path: {messages_in_path}",
+            f"total_messages: {total_messages}",
+            f"had_branches: {str(had_branches).lower()}",
             "---",
             "",
         ]
@@ -334,7 +343,14 @@ def render_conversation(
     folder_name = f"{date_str}__{safe_title(title)}__{cid}"
     chat_dir = output_dir / folder_name
 
-    transcript_parts: list[str] = [dump_yaml_front_matter(conv)]
+    transcript_parts: list[str] = [
+        dump_yaml_front_matter(
+            conv,
+            messages_in_path=len(path_messages),
+            total_messages=len(messages),
+            had_branches=had_branches,
+        )
+    ]
 
     if had_branches:
         transcript_parts.append(
@@ -355,19 +371,6 @@ def render_conversation(
 
         try:
             (tmp_dir / "transcript.md").write_text(transcript, encoding="utf-8")
-            metadata: dict[str, Any] = {
-                "conversation_id": cid,
-                "title": title,
-                "stats": {
-                    "messages_in_path": len(path_messages),
-                    "total_messages": len(messages),
-                    "had_branches": had_branches,
-                },
-            }
-            (tmp_dir / "metadata.json").write_text(
-                json.dumps(metadata, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
             if chat_dir.exists():
                 shutil.rmtree(chat_dir)
             tmp_dir.rename(chat_dir)
