@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from chatgpt_export_converter.converter import render_conversation, Summary
+from chatbot_export_converter.converter import Summary, render_conversation
 
 
 def _simple_conversation(cid: str = "test-conv-001") -> dict:
@@ -74,7 +74,9 @@ def test_output_written_to_desired_dir(tmp_path: Path) -> None:
 def test_no_temp_dir_left_on_success(tmp_path: Path) -> None:
     """No .tmp-* directory remains after a successful render."""
     conv = _simple_conversation()
-    render_conversation(conv, tmp_path, tmp_path, {}, [], Summary(), dry_run=False, incremental=False)
+    render_conversation(
+        conv, tmp_path, tmp_path, {}, [], Summary(), dry_run=False, incremental=False
+    )
 
     leftover_tmp = [p for p in tmp_path.iterdir() if p.name.startswith(".tmp")]
     assert leftover_tmp == [], f"Temp dirs left behind: {leftover_tmp}"
@@ -85,7 +87,7 @@ def test_temp_dir_cleaned_up_on_write_failure(tmp_path: Path) -> None:
     conv = _simple_conversation("fail-conv-001")
 
     with patch(
-        "chatgpt_export_converter.converter.dump_yaml_front_matter",
+        "chatbot_export_converter.converter.dump_yaml_front_matter",
         side_effect=RuntimeError("simulated write failure"),
     ):
         with pytest.raises(RuntimeError, match="simulated write failure"):

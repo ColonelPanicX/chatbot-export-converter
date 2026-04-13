@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import choose_conversation_path
+from chatbot_export_converter.converter import choose_conversation_path
 
 
 def _node(node_id: str, create_time: float | None = None) -> dict:
@@ -28,7 +28,9 @@ def _node(node_id: str, create_time: float | None = None) -> dict:
 def test_fallback_sort_is_deterministic_without_timestamps() -> None:
     """Nodes with no create_time are sorted by ID — order is consistent across calls."""
     conv = {
-        "id": "c1", "title": "T", "current_node": None,
+        "id": "c1",
+        "title": "T",
+        "current_node": None,
         "mapping": {
             "node-b": _node("node-b"),
             "node-a": _node("node-a"),
@@ -45,7 +47,9 @@ def test_fallback_sort_is_deterministic_without_timestamps() -> None:
 def test_fallback_sort_by_timestamp_when_available() -> None:
     """Nodes with create_time are sorted chronologically."""
     conv = {
-        "id": "c1", "title": "T", "current_node": None,
+        "id": "c1",
+        "title": "T",
+        "current_node": None,
         "mapping": {
             "node-z": _node("node-z", create_time=1700000003.0),
             "node-a": _node("node-a", create_time=1700000001.0),
@@ -60,7 +64,9 @@ def test_fallback_sort_by_timestamp_when_available() -> None:
 def test_current_node_path_used_when_present() -> None:
     """When current_node is valid, walk the parent chain instead of sorting."""
     conv = {
-        "id": "c1", "title": "T", "current_node": "node-2",
+        "id": "c1",
+        "title": "T",
+        "current_node": "node-2",
         "mapping": {
             "node-1": {**_node("node-1"), "children": ["node-2"]},
             "node-2": {**_node("node-2"), "parent": "node-1"},

@@ -13,6 +13,7 @@ from typing import Any
 # Format detection
 # ---------------------------------------------------------------------------
 
+
 def detect_claude_export(input_dir: Path) -> bool:
     """Return True if input_dir contains a Claude export (conversations with chat_messages)."""
     conv_path = input_dir / "conversations.json"
@@ -32,6 +33,7 @@ def detect_claude_export(input_dir: Path) -> bool:
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
+
 
 def load_conversations(input_dir: Path) -> list[dict[str, Any]]:
     """Load all conversations from a Claude export directory."""
@@ -123,17 +125,13 @@ def choose_main_path(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any
 # Content block rendering
 # ---------------------------------------------------------------------------
 
+
 def _render_thinking_block(block: dict[str, Any]) -> str:
     """Render a thinking block as a collapsed <details> section."""
     thinking = (block.get("thinking") or "").strip()
     if not thinking:
         return ""
-    return (
-        "<details>\n"
-        "<summary>💭 Thinking</summary>\n\n"
-        f"{thinking}\n\n"
-        "</details>"
-    )
+    return "<details>\n" "<summary>💭 Thinking</summary>\n\n" f"{thinking}\n\n" "</details>"
 
 
 def _render_tool_use_block(block: dict[str, Any]) -> str:
@@ -230,9 +228,7 @@ def render_message(msg: dict[str, Any], include_tool_blocks: bool) -> str:
         if not isinstance(f, dict):
             continue
         fname = f.get("file_name") or "file"
-        lines.append(
-            f"> **[File referenced: {fname} — content not included in export]**"
-        )
+        lines.append(f"> **[File referenced: {fname} — content not included in export]**")
         has_content = True
 
     if not has_content:
@@ -245,6 +241,7 @@ def render_message(msg: dict[str, Any], include_tool_blocks: bool) -> str:
 # YAML front matter
 # ---------------------------------------------------------------------------
 
+
 def _yaml_str(value: str) -> str:
     """Wrap a string value in double quotes with internal quotes escaped."""
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
@@ -256,21 +253,24 @@ def dump_yaml_front_matter(conv: dict[str, Any]) -> str:
     created_at = str(conv.get("created_at") or "")
     updated_at = str(conv.get("updated_at") or "")
 
-    return "\n".join([
-        "---",
-        f"title: {_yaml_str(title)}",
-        f"conversation_id: {_yaml_str(cid)}",
-        f"created_at: {_yaml_str(created_at)}",
-        f"updated_at: {_yaml_str(updated_at)}",
-        'source: "claude-data-export"',
-        "---",
-        "",
-    ])
+    return "\n".join(
+        [
+            "---",
+            f"title: {_yaml_str(title)}",
+            f"conversation_id: {_yaml_str(cid)}",
+            f"created_at: {_yaml_str(created_at)}",
+            f"updated_at: {_yaml_str(updated_at)}",
+            'source: "claude-data-export"',
+            "---",
+            "",
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
 # Path / slug helpers
 # ---------------------------------------------------------------------------
+
 
 def conversation_id(conv: dict[str, Any]) -> str:
     cid = conv.get("uuid")
@@ -306,6 +306,7 @@ def output_folder_name() -> str:
 # ---------------------------------------------------------------------------
 # Conversation rendering
 # ---------------------------------------------------------------------------
+
 
 def render_conversation(
     conv: dict[str, Any],
@@ -380,6 +381,7 @@ def render_conversation(
 # ---------------------------------------------------------------------------
 # Top-level entry
 # ---------------------------------------------------------------------------
+
 
 def run_conversion(
     input_dir: Path,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatgpt_export_converter.converter import sanitize_text_block
+from chatbot_export_converter.converter import sanitize_text_block
 
 
 def test_bare_placeholder_encoded() -> None:
