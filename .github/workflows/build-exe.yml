@@ -1,0 +1,25 @@
+name: Build Windows EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Build EXE
+        run: uv run pyinstaller --onefile --name chatbot-convert --collect-all questionary src/chatbot_export_converter/__main__.py
+
+      - name: Upload EXE to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/chatbot-convert.exe
