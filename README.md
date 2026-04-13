@@ -20,7 +20,8 @@ Grab `chatbot-convert.exe` from the [latest release](https://github.com/ColonelP
 
 Double-click `chatbot-convert.exe`. The GUI opens automatically — no install, no terminal required.
 
-<!-- screenshot -->
+<img width="622" height="572" alt="image" src="https://github.com/user-attachments/assets/b74fc9ff-e8ee-4397-ae95-75bc981f1ab0" />
+
 
 ---
 
