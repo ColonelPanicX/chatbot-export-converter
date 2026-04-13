@@ -64,6 +64,7 @@ def _simple_conv(uid: str = "conv-1", messages: list | None = None) -> dict:
 # detect_claude_export
 # ---------------------------------------------------------------------------
 
+
 class TestDetectClaudeExport:
     def test_returns_true_for_claude_export(self, tmp_path: Path) -> None:
         conversations = [{"uuid": "x", "chat_messages": []}]
@@ -91,6 +92,7 @@ class TestDetectClaudeExport:
 # load_conversations
 # ---------------------------------------------------------------------------
 
+
 class TestLoadConversations:
     def test_loads_list(self, tmp_path: Path) -> None:
         data = [_simple_conv("a"), _simple_conv("b")]
@@ -108,6 +110,7 @@ class TestLoadConversations:
 # ---------------------------------------------------------------------------
 # conversation_id / safe_title / date_from_iso
 # ---------------------------------------------------------------------------
+
 
 class TestHelpers:
     def test_conversation_id_returns_uuid(self) -> None:
@@ -145,6 +148,7 @@ class TestHelpers:
 # ---------------------------------------------------------------------------
 # choose_main_path
 # ---------------------------------------------------------------------------
+
 
 class TestChooseMainPath:
     def test_empty_returns_empty(self) -> None:
@@ -191,6 +195,7 @@ class TestChooseMainPath:
 # ---------------------------------------------------------------------------
 # Content block rendering
 # ---------------------------------------------------------------------------
+
 
 class TestRenderThinkingBlock:
     def test_renders_details_element(self) -> None:
@@ -269,6 +274,7 @@ class TestRenderToolResultBlock:
 # render_message
 # ---------------------------------------------------------------------------
 
+
 class TestRenderMessage:
     def test_human_heading(self) -> None:
         msg = _msg("m1", "human", [_text_block("Hello")])
@@ -331,10 +337,14 @@ class TestRenderMessage:
         assert "*(empty)*" in render_message(msg, False)
 
     def test_multiple_text_blocks_all_rendered(self) -> None:
-        msg = _msg("m2", "assistant", [
-            _text_block("First part."),
-            _text_block("Second part."),
-        ])
+        msg = _msg(
+            "m2",
+            "assistant",
+            [
+                _text_block("First part."),
+                _text_block("Second part."),
+            ],
+        )
         result = render_message(msg, False)
         assert "First part." in result
         assert "Second part." in result
@@ -343,6 +353,7 @@ class TestRenderMessage:
 # ---------------------------------------------------------------------------
 # dump_yaml_front_matter
 # ---------------------------------------------------------------------------
+
 
 class TestDumpYamlFrontMatter:
     def test_contains_required_fields(self) -> None:
@@ -369,6 +380,7 @@ class TestDumpYamlFrontMatter:
 # ---------------------------------------------------------------------------
 # render_conversation
 # ---------------------------------------------------------------------------
+
 
 class TestRenderConversation:
     def test_creates_chat_dir(self, tmp_path: Path) -> None:
@@ -466,6 +478,7 @@ class TestRenderConversation:
 # ---------------------------------------------------------------------------
 # run_conversion
 # ---------------------------------------------------------------------------
+
 
 class TestRunConversion:
     def _write_conversations(self, tmp_path: Path, data: list) -> Path:

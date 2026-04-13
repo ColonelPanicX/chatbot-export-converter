@@ -13,7 +13,7 @@ def _conv(cid: str) -> dict:
     return {"id": cid, "title": "Test", "create_time": 1700000000.0, "current_node": "m1"}
 
 
-def test_signature_stable_when_update_time_added(  ) -> None:
+def test_signature_stable_when_update_time_added() -> None:
     """Adding update_time to a message does not change the signature."""
     conv = _conv("c1")
     msgs = [_msg("m1", 1700000001.0, update_time=None)]
@@ -32,8 +32,9 @@ def test_signature_changes_when_content_changes() -> None:
     msgs_v1 = [_msg("m1", 1700000001.0)]
     msgs_v2 = [_msg("m1", 1700000001.0), _msg("m2", 1700000002.0)]
 
-    assert conversation_signature(conv, msgs_v1, [], 1) != \
-           conversation_signature(conv, msgs_v2, [], 2)
+    assert conversation_signature(conv, msgs_v1, [], 1) != conversation_signature(
+        conv, msgs_v2, [], 2
+    )
 
 
 def test_signature_changes_when_title_changes() -> None:
@@ -41,13 +42,15 @@ def test_signature_changes_when_title_changes() -> None:
     conv_v2 = {"id": "c1", "title": "New Title", "create_time": 1700000000.0, "current_node": "m1"}
     msgs = [_msg("m1", 1700000001.0)]
 
-    assert conversation_signature(conv_v1, msgs, [], 1) != \
-           conversation_signature(conv_v2, msgs, [], 1)
+    assert conversation_signature(conv_v1, msgs, [], 1) != conversation_signature(
+        conv_v2, msgs, [], 1
+    )
 
 
 def test_signature_changes_when_assets_change() -> None:
     conv = _conv("c1")
     msgs = [_msg("m1", 1700000001.0)]
 
-    assert conversation_signature(conv, msgs, [], 1) != \
-           conversation_signature(conv, msgs, ["file-ABC123"], 1)
+    assert conversation_signature(conv, msgs, [], 1) != conversation_signature(
+        conv, msgs, ["file-ABC123"], 1
+    )

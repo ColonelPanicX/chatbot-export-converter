@@ -26,9 +26,9 @@ _MOD = "chatgpt_export_converter.converter"
 def test_output_folder_name_format() -> None:
     """Output folder name matches chatgpt-convert-MM.DD.YYYY."""
     name = _output_folder_name()
-    assert re.match(r"chatgpt-convert-\d{2}\.\d{2}\.\d{4}$", name), (
-        f"Unexpected folder name format: {name}"
-    )
+    assert re.match(
+        r"chatgpt-convert-\d{2}\.\d{2}\.\d{4}$", name
+    ), f"Unexpected folder name format: {name}"
 
 
 def test_find_zip_in_dir_single(tmp_path: Path) -> None:
@@ -71,8 +71,10 @@ def test_prompt_output_dir_custom(tmp_path: Path) -> None:
     input_path = tmp_path / "export.zip"
     input_path.touch()
     custom_parent = tmp_path / "custom"
-    with patch(f"{_MOD}._ask_select", return_value="__custom__"), \
-         patch(f"{_MOD}._ask_path", return_value=str(custom_parent)):
+    with (
+        patch(f"{_MOD}._ask_select", return_value="__custom__"),
+        patch(f"{_MOD}._ask_path", return_value=str(custom_parent)),
+    ):
         result = _prompt_output_dir(input_path)
     assert result.parent == custom_parent
     assert result.name.startswith("chatgpt-convert-")
@@ -101,6 +103,7 @@ def test_prompt_output_dir_claude_prefix(tmp_path: Path) -> None:
 # detect_format_from_path
 # ---------------------------------------------------------------------------
 
+
 def _write_zip(path: Path, conversations: list) -> None:
     with zipfile.ZipFile(path, "w") as zf:
         zf.writestr("conversations.json", json.dumps(conversations))
@@ -122,17 +125,13 @@ def test_detect_format_chatgpt_zip(tmp_path: Path) -> None:
 
 def test_detect_format_claude_dir(tmp_path: Path) -> None:
     """Directory with chat_messages conversations.json is detected as claude."""
-    (tmp_path / "conversations.json").write_text(
-        json.dumps([{"uuid": "x", "chat_messages": []}])
-    )
+    (tmp_path / "conversations.json").write_text(json.dumps([{"uuid": "x", "chat_messages": []}]))
     assert detect_format_from_path(tmp_path) == "claude"
 
 
 def test_detect_format_chatgpt_dir(tmp_path: Path) -> None:
     """Directory with mapping conversations.json is detected as chatgpt."""
-    (tmp_path / "conversations.json").write_text(
-        json.dumps([{"id": "x", "mapping": {}}])
-    )
+    (tmp_path / "conversations.json").write_text(json.dumps([{"id": "x", "mapping": {}}]))
     assert detect_format_from_path(tmp_path) == "chatgpt"
 
 
