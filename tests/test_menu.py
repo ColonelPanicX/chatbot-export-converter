@@ -24,10 +24,18 @@ _MOD = "chatbot_export_converter.converter"
 
 
 def test_output_folder_name_format() -> None:
-    """Output folder name matches chatbot-convert-MM.DD.YYYY."""
+    """Output folder name matches chatgpt-convert-MM.DD.YYYY for ChatGPT format."""
     name = _output_folder_name()
     assert re.match(
-        r"chatbot-convert-\d{2}\.\d{2}\.\d{4}$", name
+        r"chatgpt-convert-\d{2}\.\d{2}\.\d{4}$", name
+    ), f"Unexpected folder name format: {name}"
+
+
+def test_output_folder_name_claude_format() -> None:
+    """Output folder name matches claude-convert-MM.DD.YYYY for Claude format."""
+    name = _output_folder_name("claude")
+    assert re.match(
+        r"claude-convert-\d{2}\.\d{2}\.\d{4}$", name
     ), f"Unexpected folder name format: {name}"
 
 
@@ -63,7 +71,7 @@ def test_prompt_output_dir_default(tmp_path: Path) -> None:
     with patch(f"{_MOD}._ask_select", return_value="__default__"):
         result = _prompt_output_dir(input_path)
     assert result.parent == tmp_path
-    assert result.name.startswith("chatbot-convert-")
+    assert result.name.startswith("chatgpt-convert-")
 
 
 def test_prompt_output_dir_custom(tmp_path: Path) -> None:
@@ -77,7 +85,7 @@ def test_prompt_output_dir_custom(tmp_path: Path) -> None:
     ):
         result = _prompt_output_dir(input_path)
     assert result.parent == custom_parent
-    assert result.name.startswith("chatbot-convert-")
+    assert result.name.startswith("chatgpt-convert-")
 
 
 def test_output_placed_in_dated_folder(tmp_path: Path) -> None:

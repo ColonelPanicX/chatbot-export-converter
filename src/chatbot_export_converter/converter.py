@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
 
 def _output_folder_name(fmt: str = "chatgpt") -> str:
     """Return the dated output folder name based on detected format."""
-    prefix = "claude-convert" if fmt == "claude" else "chatbot-convert"
+    prefix = "claude-convert" if fmt == "claude" else "chatgpt-convert"
     return datetime.now().strftime(f"{prefix}-%m.%d.%Y")
 
 
