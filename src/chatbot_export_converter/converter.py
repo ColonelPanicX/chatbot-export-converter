@@ -1005,9 +1005,30 @@ def print_summary(summary: Summary, total: int, output_dir: Path | None = None) 
     print("=" * 56)
 
 
+def _should_use_gui() -> bool:
+    """True when running as a windowed frozen exe or when stdin has no TTY."""
+    # PyInstaller windowed exe sets sys.stdout to None
+    if getattr(sys, "frozen", False) and sys.stdout is None:
+        return True
+    try:
+        return not sys.stdin.isatty()
+    except Exception:
+        return True
+
+
 def main() -> int:
     args = parse_args()
     fmt = "unknown"
+
+    # Auto-launch GUI when no interactive terminal (e.g. double-clicked exe)
+    if not args.input and not args.output and not args.wizard:
+        if _should_use_gui():
+            try:
+                from chatbot_export_converter.gui import run_gui  # noqa: PLC0415
+
+                return run_gui()
+            except ImportError:
+                pass  # customtkinter not installed; fall through to TUI
 
     if args.wizard:
         # --wizard is deprecated; delegates to run_menu and patches args

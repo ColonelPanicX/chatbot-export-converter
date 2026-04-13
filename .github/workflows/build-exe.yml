@@ -20,7 +20,14 @@ jobs:
         run: uv sync --dev
 
       - name: Build EXE
-        run: uv run pyinstaller --onefile --name chatbot-convert --collect-all questionary src/chatbot_export_converter/__main__.py
+        run: >
+          uv run pyinstaller
+          --onefile
+          --windowed
+          --name chatbot-convert
+          --collect-all questionary
+          --collect-all customtkinter
+          src/chatbot_export_converter/__main__.py
 
       - name: Upload EXE to release
         uses: softprops/action-gh-release@v2

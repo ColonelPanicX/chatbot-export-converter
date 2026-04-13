@@ -10,11 +10,13 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 readme = "README.md"
 dependencies = [
+    "customtkinter>=5.2",
     "questionary>=2.1.1",
 ]
 
 [project.scripts]
 chatbot-convert = "chatbot_export_converter.converter:main"
+chatbot-convert-gui = "chatbot_export_converter.gui:main"
 
 [dependency-groups]
 dev = [
@@ -43,3 +45,7 @@ target-version = ["py310"]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["customtkinter"]
+ignore_missing_imports = true
