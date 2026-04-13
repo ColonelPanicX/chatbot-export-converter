@@ -6,8 +6,9 @@ Usage:
     python3 chatgpt-converter.py
     python3 chatgpt-converter.py --input export.zip --output ./chats
 """
-import sys
+
 import os
+import sys
 
 # Allow running from the repo root without installing the package.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))

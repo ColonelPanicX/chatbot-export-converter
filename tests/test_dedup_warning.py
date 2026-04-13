@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from chatgpt_export_converter.converter import main
 
 
@@ -20,14 +18,20 @@ def _make_conv(cid: str, title: str) -> dict:
         "current_node": "msg-1",
         "mapping": {
             "msg-1": {
-                "id": "msg-1", "parent": None, "children": [],
+                "id": "msg-1",
+                "parent": None,
+                "children": [],
                 "message": {
                     "id": "msg-1",
                     "author": {"role": "user", "name": None, "metadata": {}},
-                    "create_time": 1700000001.0, "update_time": None,
+                    "create_time": 1700000001.0,
+                    "update_time": None,
                     "content": {"content_type": "text", "parts": [f"Hello from {title}"]},
-                    "status": "finished_successfully", "end_turn": False,
-                    "weight": 1.0, "metadata": {}, "recipient": "all",
+                    "status": "finished_successfully",
+                    "end_turn": False,
+                    "weight": 1.0,
+                    "metadata": {},
+                    "recipient": "all",
                 },
             },
         },
@@ -43,8 +47,10 @@ def test_duplicate_id_emits_warning(tmp_path: Path, capsys) -> None:
     (tmp_path / "conversations.json").write_text(json.dumps(convs), encoding="utf-8")
     out_dir = tmp_path / "out"
 
-    with patch("sys.argv", ["chatgpt-convert", "--input", str(tmp_path),
-                            "--output", str(out_dir), "--dry-run"]):
+    with patch(
+        "sys.argv",
+        ["chatgpt-convert", "--input", str(tmp_path), "--output", str(out_dir), "--dry-run"],
+    ):
         main()
 
     captured = capsys.readouterr()
@@ -62,8 +68,7 @@ def test_duplicate_id_keeps_last(tmp_path: Path, capsys) -> None:
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    with patch("sys.argv", ["chatgpt-convert", "--input", str(tmp_path),
-                            "--output", str(out_dir)]):
+    with patch("sys.argv", ["chatgpt-convert", "--input", str(tmp_path), "--output", str(out_dir)]):
         main()
 
     conv_dirs = [p for p in out_dir.iterdir() if p.is_dir()]
@@ -77,8 +82,10 @@ def test_no_warning_for_unique_ids(tmp_path: Path, capsys) -> None:
     (tmp_path / "conversations.json").write_text(json.dumps(convs), encoding="utf-8")
     out_dir = tmp_path / "out"
 
-    with patch("sys.argv", ["chatgpt-convert", "--input", str(tmp_path),
-                            "--output", str(out_dir), "--dry-run"]):
+    with patch(
+        "sys.argv",
+        ["chatgpt-convert", "--input", str(tmp_path), "--output", str(out_dir), "--dry-run"],
+    ):
         main()
 
     assert "duplicate" not in capsys.readouterr().err.lower()
