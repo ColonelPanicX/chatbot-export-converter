@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import questionary
+
 ASSET_ID_RE = re.compile(r"(file[-_][A-Za-z0-9]+)")
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
 
@@ -123,17 +125,35 @@ def detect_format_from_path(path: Path) -> str:
     return "unknown"
 
 
+# ---------------------------------------------------------------------------
+# questionary wrappers — thin layer that handles cancellation (Ctrl+C / None)
+# and keeps the rest of the code easy to test by patching these three names.
+# ---------------------------------------------------------------------------
+
+def _ask_select(message: str, choices: list) -> str:
+    result = questionary.select(message, choices=choices).ask()
+    if result is None:
+        raise SystemExit(0)
+    return result
+
+
+def _ask_path(message: str, only_directories: bool = False) -> str:
+    result = questionary.path(message, only_directories=only_directories).ask()
+    if result is None:
+        raise SystemExit(0)
+    return result
+
+
+def _ask_confirm(message: str, default: bool = True) -> bool:
+    result = questionary.confirm(message, default=default).ask()
+    if result is None:
+        raise SystemExit(0)
+    return result
+
+
+# Keep the old name so callers outside the module (if any) don't break.
 def prompt_bool(prompt: str, default: bool = False) -> bool:
-    suffix = "[Y/n]" if default else "[y/N]"
-    while True:
-        raw = input(f"{prompt} {suffix}: ").strip().lower()
-        if not raw:
-            return default
-        if raw in {"y", "yes"}:
-            return True
-        if raw in {"n", "no"}:
-            return False
-        print("Please answer y or n.")
+    return _ask_confirm(prompt, default=default)
 
 
 def _find_zip_in_dir(directory: Path) -> Path | None:
@@ -143,55 +163,42 @@ def _find_zip_in_dir(directory: Path) -> Path | None:
         return None
     if len(zips) == 1:
         return zips[0]
-    print(f"\n  Found {len(zips)} zip files in {directory}:")
-    for i, z in enumerate(zips, 1):
-        print(f"    [{i}] {z.name}")
-    while True:
-        raw = input("  > ").strip()
-        try:
-            idx = int(raw) - 1
-            if 0 <= idx < len(zips):
-                return zips[idx]
-        except ValueError:
-            pass
-        print(f"  Please enter a number between 1 and {len(zips)}.")
+    choices = [questionary.Choice(title=z.name, value=str(z)) for z in zips]
+    return Path(_ask_select(f"Multiple zips found in {directory} — pick one:", choices))
 
 
 def _prompt_input_path() -> Path:
-    """Prompt for the ChatGPT export zip location."""
+    """Prompt for the export zip location using questionary."""
     cwd = Path.cwd()
-    print("\nWhere is your ChatGPT export zip?")
-    print(f"  [1] Current directory  ({cwd})")
-    print("  [2] Different location")
+    cwd_zips = sorted(cwd.glob("*.zip"))
 
+    _BROWSE = "__browse__"
+    choices = [
+        questionary.Choice(title=f"{z.name}  (current directory)", value=str(z))
+        for z in cwd_zips
+    ]
+    choices.append(questionary.Choice(title="Browse to a different file…", value=_BROWSE))
+
+    if cwd_zips:
+        selection = _ask_select("Export zip to convert:", choices)
+        if selection != _BROWSE:
+            return Path(selection)
+
+    # Browse: keep prompting until we land on a valid zip.
     while True:
-        choice = input("> ").strip()
-        if choice in {"", "1"}:
-            found = _find_zip_in_dir(cwd)
+        raw = _ask_path("Path to export zip (tab to autocomplete):")
+        if not raw:
+            continue
+        path = Path(raw).expanduser().resolve()
+        if path.is_file() and path.suffix.lower() == ".zip":
+            return path
+        if path.is_dir():
+            found = _find_zip_in_dir(path)
             if found:
                 return found
-            print(f"  No .zip file found in {cwd}.")
+            print(f"  No .zip file found in {path}.")
             continue
-        if choice == "2":
-            while True:
-                raw = input("Path to your ChatGPT export zip:\n> ").strip()
-                if not raw:
-                    print("  A path is required.")
-                    continue
-                path = Path(raw).expanduser().resolve()
-                if not path.exists():
-                    print(f"  Not found: {path}")
-                    continue
-                if path.is_file() and path.suffix.lower() == ".zip":
-                    return path
-                if path.is_dir():
-                    found = _find_zip_in_dir(path)
-                    if found:
-                        return found
-                    print(f"  No .zip file found in {path}.")
-                    continue
-                print("  Must be a .zip file.")
-        print("  Please enter 1 or 2.")
+        print("  Must be a .zip file.")
 
 
 def _prompt_output_dir(input_path: Path, fmt: str = "chatgpt") -> Path:
@@ -199,22 +206,21 @@ def _prompt_output_dir(input_path: Path, fmt: str = "chatgpt") -> Path:
     folder_name = _output_folder_name(fmt)
     default_output = input_path.parent / folder_name
 
-    print("\nWhere should the converted files go?")
-    print(f"  [1] Alongside the export  ({default_output})")
-    print("  [2] Different location")
+    _CUSTOM = "__custom__"
+    choices = [
+        questionary.Choice(
+            title=f"Alongside the export  ({default_output})",
+            value="__default__",
+        ),
+        questionary.Choice(title="Choose a different directory…", value=_CUSTOM),
+    ]
+    selection = _ask_select("Where should the converted files go?", choices)
 
-    while True:
-        choice = input("> ").strip()
-        if choice in {"", "1"}:
-            return default_output
-        if choice == "2":
-            while True:
-                raw = input("Output directory:\n> ").strip()
-                if not raw:
-                    print("  A path is required.")
-                    continue
-                return Path(raw).expanduser().resolve() / folder_name
-        print("  Please enter 1 or 2.")
+    if selection != _CUSTOM:
+        return default_output
+
+    raw = _ask_path("Output directory (tab to autocomplete):", only_directories=True)
+    return Path(raw).expanduser().resolve() / folder_name
 
 
 _FORMAT_LABELS: dict[str, str] = {
@@ -242,7 +248,7 @@ def run_menu(args: argparse.Namespace) -> tuple[Path, Path, bool, bool, str]:
     print(f"  Output:  {output_dir}")
     print()
 
-    if not prompt_bool("Proceed?", default=True):
+    if not _ask_confirm("Proceed?", default=True):
         print("Cancelled.")
         raise SystemExit(0)
 

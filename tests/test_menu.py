@@ -15,6 +15,13 @@ from chatgpt_export_converter.converter import (
     detect_format_from_path,
 )
 
+# All interactive prompts go through three thin wrappers:
+#   _ask_select(message, choices) -> str
+#   _ask_path(message, only_directories=False) -> str
+#   _ask_confirm(message, default=True) -> bool
+# Tests patch these so no real terminal is needed.
+_MOD = "chatgpt_export_converter.converter"
+
 
 def test_output_folder_name_format() -> None:
     """Output folder name matches chatgpt-convert-MM.DD.YYYY."""
@@ -25,7 +32,7 @@ def test_output_folder_name_format() -> None:
 
 
 def test_find_zip_in_dir_single(tmp_path: Path) -> None:
-    """Returns the single zip found in the directory."""
+    """Returns the single zip found in the directory without prompting."""
     (tmp_path / "export.zip").touch()
     result = _find_zip_in_dir(tmp_path)
     assert result == tmp_path / "export.zip"
@@ -39,42 +46,33 @@ def test_find_zip_in_dir_none(tmp_path: Path) -> None:
 
 
 def test_find_zip_in_dir_multiple_prompts(tmp_path: Path) -> None:
-    """Prompts user to choose when multiple zips are found."""
-    (tmp_path / "export-a.zip").touch()
-    (tmp_path / "export-b.zip").touch()
-    with patch("builtins.input", return_value="1"):
+    """Uses _ask_select when multiple zips are found; returns chosen zip."""
+    za = tmp_path / "export-a.zip"
+    zb = tmp_path / "export-b.zip"
+    za.touch()
+    zb.touch()
+    with patch(f"{_MOD}._ask_select", return_value=str(za)):
         result = _find_zip_in_dir(tmp_path)
-    assert result is not None
-    assert result.suffix == ".zip"
+    assert result == za
 
 
 def test_prompt_output_dir_default(tmp_path: Path) -> None:
-    """Choosing option 1 returns input_path.parent / folder_name."""
+    """Selecting the default option returns input_path.parent / folder_name."""
     input_path = tmp_path / "export.zip"
     input_path.touch()
-    with patch("builtins.input", return_value="1"):
-        result = _prompt_output_dir(input_path)
-    assert result.parent == tmp_path
-    assert result.name.startswith("chatgpt-convert-")
-
-
-def test_prompt_output_dir_empty_uses_default(tmp_path: Path) -> None:
-    """Pressing enter (empty) selects option 1."""
-    input_path = tmp_path / "export.zip"
-    input_path.touch()
-    with patch("builtins.input", return_value=""):
+    with patch(f"{_MOD}._ask_select", return_value="__default__"):
         result = _prompt_output_dir(input_path)
     assert result.parent == tmp_path
     assert result.name.startswith("chatgpt-convert-")
 
 
 def test_prompt_output_dir_custom(tmp_path: Path) -> None:
-    """Choosing option 2 and entering a path uses that location."""
+    """Selecting custom and entering a path places the dated folder inside it."""
     input_path = tmp_path / "export.zip"
     input_path.touch()
     custom_parent = tmp_path / "custom"
-    responses = iter(["2", str(custom_parent)])
-    with patch("builtins.input", side_effect=responses):
+    with patch(f"{_MOD}._ask_select", return_value="__custom__"), \
+         patch(f"{_MOD}._ask_path", return_value=str(custom_parent)):
         result = _prompt_output_dir(input_path)
     assert result.parent == custom_parent
     assert result.name.startswith("chatgpt-convert-")
@@ -84,10 +82,19 @@ def test_output_placed_in_dated_folder(tmp_path: Path) -> None:
     """Output path is always the dated folder, never the bare parent."""
     input_path = tmp_path / "export.zip"
     input_path.touch()
-    with patch("builtins.input", return_value="1"):
+    with patch(f"{_MOD}._ask_select", return_value="__default__"):
         result = _prompt_output_dir(input_path)
     assert result != tmp_path
     assert result.parent == tmp_path
+
+
+def test_prompt_output_dir_claude_prefix(tmp_path: Path) -> None:
+    """Claude format produces a claude-convert- prefixed folder."""
+    input_path = tmp_path / "export.zip"
+    input_path.touch()
+    with patch(f"{_MOD}._ask_select", return_value="__default__"):
+        result = _prompt_output_dir(input_path, fmt="claude")
+    assert result.name.startswith("claude-convert-")
 
 
 # ---------------------------------------------------------------------------
