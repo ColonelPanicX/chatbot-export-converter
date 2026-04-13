@@ -2,7 +2,29 @@
 
 Convert ChatGPT and Claude data exports into browsable per-conversation markdown folders.
 
-## Quick Start
+---
+
+## Windows
+
+### 1. Get your export
+
+**ChatGPT:** Settings → Data Controls → Export Data → download the `.zip`
+
+**Claude:** Settings → Privacy → Export Data → download the `.zip`
+
+### 2. Download the exe
+
+Grab `chatbot-convert.exe` from the [latest release](https://github.com/ColonelPanicX/chatbot-export-converter/releases/latest).
+
+### 3. Run
+
+Double-click `chatbot-convert.exe`. The GUI opens automatically — no install, no terminal required.
+
+<!-- screenshot -->
+
+---
+
+## Mac / Linux
 
 ### 1. Get your export
 
@@ -24,7 +46,7 @@ uv tool install .
 chatbot-convert
 ```
 
-The tool opens an interactive menu. It will ask for your export file and where to save the output — no flags needed. Format (ChatGPT vs Claude) is auto-detected.
+The interactive menu will ask for your export file and where to save the output. Format (ChatGPT vs Claude) is auto-detected.
 
 ---
 
@@ -35,11 +57,14 @@ One folder per conversation, named by date, title, and ID:
 ```
 chatgpt-convert-04.13.2026/
 └── 2025-03-14__my-python-question__abc123uuid/
-    ├── transcript.md
-    └── metadata.json
+    └── transcript.md
+
+claude-convert-04.13.2026/
+└── 2025-03-14__my-claude-chat__abc123uuid/
+    └── transcript.md
 ```
 
-Claude exports use the same structure under a `claude-convert-MM.DD.YYYY/` folder.
+Each `transcript.md` opens as a readable markdown file with full conversation history and a YAML frontmatter block containing stats and metadata.
 
 ---
 
@@ -77,9 +102,9 @@ chatbot-convert --input /path/to/unzipped-export/ --output ./chats
 
 ## Known Limitations
 
-### Unresolved assets in `metadata.json` (ChatGPT)
+### Unresolved assets (ChatGPT)
 
-Each ChatGPT conversation's `metadata.json` includes an `unresolved_asset_ids` list. An ID appears there when a conversation references a file that isn't present in the export zip. This is a ChatGPT export limitation — the transcript is still complete; only those specific attachments are missing.
+When a conversation references a file that isn't present in the export zip, its ID is recorded in the transcript frontmatter under `unresolved_asset_ids`. The transcript is still complete — only those specific attachments are missing. This is a ChatGPT export limitation.
 
 ---
 
